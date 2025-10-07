@@ -1,267 +1,246 @@
+-- Plants Vs Brainrots Ultimate Cheat GUI - Optimized and Fixed
+-- Launches GUI immediately, loads remotes with error handling
+-- Features: Auto Farm (plant/collect), Auto Sell, Auto Buy, Auto Fuse, Dupe (via buy loop), Rainbow, Anti-Cheat Evasion
+-- Duped items "saved" by server-sync via remotes
+-- Hotkey: [ to toggle GUI
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local backpack = player:WaitForChild("Backpack")
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
--- Game-specific: Plants Vs Brainrots remotes (common names; adjust if needed via decompiler)
-local remotes = ReplicatedStorage:WaitForChild("Remotes") -- Assuming folder
-local plantRemote = remotes:WaitForChild("PlantSeed") -- Plant seed
-local sellRemote = remotes:WaitForChild("SellPlant") -- Sell plant
-local buyRemote = remotes:WaitForChild("BuySeed") -- Buy seed
-local dupeRemote = remotes:WaitForChild("DupeItem") -- If exists; else use buy loop
-local collectRemote = remotes:WaitForChild("CollectMoney") -- Collect rewards
-local fuseRemote = remotes:WaitForChild("FusePlants") -- Fuse for huge plants
+-- Variables
+local farmPos = Vector3.new(0, 5, 0) -- Adjust to your plot position
+local isFarming = false
+local isSelling = false
+local isBuying = false
+local isFusing = false
+local isRainbow = false
+local dupeAmt = 50
+local buyAmt = 100
+local delayMin = 0.2
+local delayMax = 1.0
+local gui = nil
+local isGuiOpen = true
+local farmConn = nil
+local sellConn = nil
+local buyConn = nil
+local fuseConn = nil
 
--- Obfuscated vars for anti-cheat
-local _farmPos = Vector3.new(0, 5, 0) -- Set to your plot/garden position
-local _isFarming = false
-local _isDuping = false
-local _isSelling = false
-local _isBuying = false
-local _isFusing = false
-local _isRainbow = false
-local _dupeAmt = 50
-local _buyAmt = 100 -- Amount to buy/dupe per cycle
-local _farmConn = nil
-local _dupeConn = nil
-local _sellConn = nil
-local _buyConn = nil
-local _fuseConn = nil
-local _gui = nil
-local _isGuiOpen = true
-local _delayMin = 0.2
-local _delayMax = 1.0
+-- Remote loading with pcall to prevent hanging
+local function getRemote(name)
+    local success, remote = pcall(function()
+        return ReplicatedStorage.Remotes:WaitForChild(name, 5) -- Timeout 5s
+    end)
+    if success and remote then
+        return remote
+    else
+        StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Remote '" .. name .. "' not found.", Duration = 5})
+        return nil
+    end
+end
 
--- Get held item (seed/plant/brainrot)
-local function _getHeldItem()
+-- Get held item
+local function getHeldItem()
     for _, item in ipairs(character:GetChildren()) do
-        if item:IsA("Tool") then
-            return item
-        end
+        if item:IsA("Tool") then return item end
     end
     for _, item in ipairs(backpack:GetChildren()) do
-        if item:IsA("Tool") then
-            return item
-        end
+        if item:IsA("Tool") then return item end
     end
     return nil
 end
 
--- Server-synced dupe: Fire buy remote multiple times or exploit dupe if available
-local function _dupeItem()
-    if _isDuping then return end
-    _isDuping = true
-    local item = _getHeldItem()
+-- Dupe via buy loop (server-synced)
+local function dupeItem()
+    local buyRemote = getRemote("BuySeed")
+    if not buyRemote then return end
+    local item = getHeldItem()
     if item then
-        for i = 1, _dupeAmt do
-            -- Use buy remote to "dupe" by buying equivalents; or fire dupe if exists
-            if dupeRemote then
-                dupeRemote:FireServer(item.Name, 1) -- Assume args: itemName, amount
-            else
-                buyRemote:FireServer(item.Name, 1) -- Buy one each time for effective dupe
-            end
-            -- Add rainbow to new item if enabled (local visual)
-            if _isRainbow then
+        for i = 1, dupeAmt do
+            buyRemote:FireServer(item.Name, 1) -- Buy one at a time
+            if isRainbow then
                 task.wait(0.1)
-                local newItem = backpack:FindFirstChild(item.Name .. " (Clone)") or backpack:FindFirstChild(item.Name)
+                local newItem = backpack:FindFirstChild(item.Name)
                 if newItem then
-                    local rbScript = Instance.new("LocalScript")
-                    rbScript.Name = "RbEff"
-                    rbScript.Source = [[
-                        local h = script.Parent:FindFirstChild("Handle")
-                        if h and h:IsA("BasePart") then
-                            while true do
-                                h.Color = Color3.fromHSV(tick() % 1, 1, 1)
-                                wait(0.1)
-                            end
-                        end
-                    ]]
-                    rbScript.Parent = newItem
+                    local rbScript = Instance.new("LocalScript", newItem)
+                    rbScript.Name = "Rainbow"
+                    rbScript.Source = "local h = script.Parent.Handle if h then while true do h.Color = Color3.fromHSV(tick()%1,1,1) wait(0.1) end end"
                 end
             end
-            task.wait(math.random(_delayMin * 10, _delayMax * 10) / 10) -- Random delay
+            task.wait(math.random(delayMin, delayMax))
         end
-        -- "Save" by auto-equipping one to persist local state
-        if item then humanoid:EquipTool(item) end
-    else
-        StarterGui:SetCore("SendNotification", {Title = "Dupe Error", Text = "No item to dupe.", Duration = 3})
     end
-    _isDuping = false
 end
 
--- Auto-farm: Move to plot, plant, collect, with server fires
-local function _autoFarm()
-    if _isFarming and character and humanoid.Health > 0 then
-        humanoid:MoveTo(_farmPos)
+-- Auto Farm
+local function autoFarm()
+    if isFarming and character and humanoid.Health > 0 then
+        humanoid:MoveTo(farmPos)
         task.wait(math.random(1, 3))
-        local seed = _getHeldItem() or backpack:FindFirstChildOfClass("Tool")
-        if seed then
-            humanoid:EquipTool(seed)
-            task.wait(math.random(_delayMin, _delayMax))
-            plantRemote:FireServer(_farmPos, seed.Name) -- Plant at position
+        local plantRemote = getRemote("PlantSeed")
+        local collectRemote = getRemote("CollectMoney")
+        if plantRemote then
+            local seed = getHeldItem() or backpack:FindFirstChildOfClass("Tool")
+            if seed then
+                humanoid:EquipTool(seed)
+                task.wait(math.random(delayMin, delayMax))
+                plantRemote:FireServer(farmPos, seed.Name)
+            end
         end
-        collectRemote:FireServer() -- Collect money
+        if collectRemote then collectRemote:FireServer() end
         task.wait(math.random(2, 5))
     end
 end
 
--- Auto-sell: Fire sell remote for all or selected
-local function _autoSell()
-    if _isSelling then
-        sellRemote:FireServer("All") -- Assume "All" arg for inventory
+-- Auto Sell
+local function autoSell()
+    if isSelling then
+        local sellRemote = getRemote("SellPlant")
+        if sellRemote then
+            sellRemote:FireServer("All")
+        end
         task.wait(math.random(1, 2))
     end
 end
 
--- Auto-buy: Buy seeds/plants
-local function _autoBuy()
-    if _isBuying then
-        buyRemote:FireServer("CommonSeed", _buyAmt) -- Example seed name
+-- Auto Buy
+local function autoBuy()
+    if isBuying then
+        local buyRemote = getRemote("BuySeed")
+        if buyRemote then
+            buyRemote:FireServer("CommonSeed", buyAmt) -- Adjust seed name
+        end
         task.wait(math.random(1, 2))
     end
 end
 
--- Auto-fuse: For huge plants
-local function _autoFuse()
-    if _isFusing then
-        fuseRemote:FireServer("Plant1", "Plant2") -- Example args
+-- Auto Fuse
+local function autoFuse()
+    if isFusing then
+        local fuseRemote = getRemote("FusePlants")
+        if fuseRemote then
+            fuseRemote:FireServer("Plant1", "Plant2") -- Adjust args
+        end
         task.wait(math.random(3, 5))
     end
 end
 
 -- Toggles
-local function _toggleFarm() _isFarming = not _isFarming; if _isFarming then _farmConn = RunService.Heartbeat:Connect(_autoFarm) else if _farmConn then _farmConn:Disconnect() end end end
-local function _toggleDupe() spawn(_dupeItem) end
-local function _toggleSell() _isSelling = not _isSelling; if _isSelling then _sellConn = RunService.Heartbeat:Connect(_autoSell) else if _sellConn then _sellConn:Disconnect() end end end
-local function _toggleBuy() _isBuying = not _isBuying; if _isBuying then _buyConn = RunService.Heartbeat:Connect(_autoBuy) else if _buyConn then _buyConn:Disconnect() end end end
-local function _toggleFuse() _isFusing = not _isFusing; if _isFusing then _fuseConn = RunService.Heartbeat:Connect(_autoFuse) else if _fuseConn then _fuseConn:Disconnect() end end end
-local function _toggleRb() _isRainbow = not _isRainbow end
-local function _toggleGui() _isGuiOpen = not _isGuiOpen; if _gui then _gui.Enabled = _isGuiOpen end end
+local function toggleFarm()
+    isFarming = not isFarming
+    if isFarming then farmConn = RunService.Heartbeat:Connect(autoFarm) else if farmConn then farmConn:Disconnect() end end
+end
 
--- Hotkey "[" for GUI toggle
-UserInputService.InputBegan:Connect(function(input) if input.KeyCode == Enum.KeyCode.LeftBracket then _toggleGui() end end)
+local function toggleSell()
+    isSelling = not isSelling
+    if isSelling then sellConn = RunService.Heartbeat:Connect(autoSell) else if sellConn then sellConn:Disconnect() end end
+end
 
--- Ultimate GUI with all features
-local function _createGui()
+local function toggleBuy()
+    isBuying = not isBuying
+    if isBuying then buyConn = RunService.Heartbeat:Connect(autoBuy) else if buyConn then buyConn:Disconnect() end end
+end
+
+local function toggleFuse()
+    isFusing = not isFusing
+    if isFusing then fuseConn = RunService.Heartbeat:Connect(autoFuse) else if fuseConn then fuseConn:Disconnect() end end
+end
+
+local function toggleRainbow()
+    isRainbow = not isRainbow
+end
+
+local function toggleGui()
+    isGuiOpen = not isGuiOpen
+    if gui then gui.Enabled = isGuiOpen end
+end
+
+-- Hotkey [
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.LeftBracket then toggleGui() end
+end)
+
+-- Create GUI first to ensure launch
+local function createGui()
     local sg = Instance.new("ScreenGui")
-    sg.Name = "PvBCheatHub"
+    sg.Name = "PvBCheat"
     sg.Parent = player.PlayerGui
     sg.ResetOnSpawn = false
-    _gui = sg
+    gui = sg
 
     local fr = Instance.new("Frame")
     fr.Size = UDim2.new(0, 300, 0, 400)
     fr.Position = UDim2.new(0.5, -150, 0.5, -200)
     fr.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    fr.BorderSizePixel = 0
     fr.Parent = sg
 
-    local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = fr
-    local stroke = Instance.new("UIStroke") stroke.Color = Color3.fromRGB(255, 0, 0) stroke.Thickness = 2 stroke.Parent = fr
+    Instance.new("UICorner").Parent = fr
+    Instance.new("UIStroke").Parent = fr
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 40)
-    title.Text = "PvB Ultimate Cheat Hub"
-    title.BackgroundTransparency = 1
+    title.Text = "PvB Ultimate Cheat"
     title.TextColor3 = Color3.new(1,1,1)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
+    title.BackgroundTransparency = 1
     title.Parent = fr
 
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.Text = "X"
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    closeBtn.TextColor3 = Color3.new(1,1,1)
-    closeBtn.Parent = fr
-    closeBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 30, 0, 30)
+    close.Position = UDim2.new(1, -35, 0, 5)
+    close.Text = "X"
+    close.BackgroundColor3 = Color3.new(1,0,0)
+    close.Parent = fr
+    close.MouseButton1Click:Connect(function() sg:Destroy() end)
 
-    -- Buttons (example for one; replicate for others)
-    local farmBtn = Instance.new("TextButton")
-    farmBtn.Size = UDim2.new(1, -20, 0, 40)
-    farmBtn.Position = UDim2.new(0, 10, 0, 50)
-    farmBtn.Text = "Toggle Auto Farm"
-    farmBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    farmBtn.TextColor3 = Color3.new(1,1,1)
-    farmBtn.Parent = fr
-    farmBtn.MouseButton1Click:Connect(function()
-        _toggleFarm()
-        farmBtn.Text = _isFarming and "Stop Farm" or "Start Farm"
-        farmBtn.BackgroundColor3 = _isFarming and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+    -- Add buttons similarly as before
+    local function addButton(pos, text, color, func)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -20, 0, 40)
+        btn.Position = UDim2.new(0, 10, 0, pos)
+        btn.Text = text
+        btn.BackgroundColor3 = color
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.Parent = fr
+        btn.MouseButton1Click:Connect(func)
+        return btn
+    end
+
+    local farmBtn = addButton(50, "Toggle Farm", Color3.fromRGB(0,255,0), function()
+        toggleFarm()
+        farmBtn.Text = isFarming and "Stop Farm" or "Toggle Farm"
+        farmBtn.BackgroundColor3 = isFarming and Color3.fromRGB(255,0,0) or Color3.fromRGB(0,255,0)
     end)
 
-    -- Dupe Button
-    local dupeBtn = Instance.new("TextButton")
-    dupeBtn.Size = UDim2.new(1, -20, 0, 40)
-    dupeBtn.Position = UDim2.new(0, 10, 0, 100)
-    dupeBtn.Text = "Dupe Held Item x" .. _dupeAmt
-    dupeBtn.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-    dupeBtn.TextColor3 = Color3.new(1,1,1)
-    dupeBtn.Parent = fr
-    dupeBtn.MouseButton1Click:Connect(_toggleDupe)
+    local dupeBtn = addButton(100, "Dupe x" .. dupeAmt, Color3.fromRGB(255,165,0), dupeItem)
 
-    -- Sell Button
-    local sellBtn = Instance.new("TextButton")
-    sellBtn.Size = UDim2.new(1, -20, 0, 40)
-    sellBtn.Position = UDim2.new(0, 10, 0, 150)
-    sellBtn.Text = "Toggle Auto Sell"
-    sellBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    sellBtn.TextColor3 = Color3.new(1,1,1)
-    sellBtn.Parent = fr
-    sellBtn.MouseButton1Click:Connect(function()
-        _toggleSell()
-        sellBtn.Text = _isSelling and "Stop Sell" or "Start Sell"
+    local sellBtn = addButton(150, "Toggle Sell", Color3.fromRGB(255,0,0), function()
+        toggleSell()
+        sellBtn.Text = isSelling and "Stop Sell" or "Toggle Sell"
     end)
 
-    -- Buy Button
-    local buyBtn = Instance.new("TextButton")
-    buyBtn.Size = UDim2.new(1, -20, 0, 40)
-    buyBtn.Position = UDim2.new(0, 10, 0, 200)
-    buyBtn.Text = "Toggle Auto Buy"
-    buyBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 255)
-    buyBtn.TextColor3 = Color3.new(1,1,1)
-    buyBtn.Parent = fr
-    buyBtn.MouseButton1Click:Connect(function()
-        _toggleBuy()
-        buyBtn.Text = _isBuying and "Stop Buy" or "Start Buy"
+    local buyBtn = addButton(200, "Toggle Buy", Color3.fromRGB(0,0,255), function()
+        toggleBuy()
+        buyBtn.Text = isBuying and "Stop Buy" or "Toggle Buy"
     end)
 
-    -- Fuse Button
-    local fuseBtn = Instance.new("TextButton")
-    fuseBtn.Size = UDim2.new(1, -20, 0, 40)
-    fuseBtn.Position = UDim2.new(0, 10, 0, 250)
-    fuseBtn.Text = "Toggle Auto Fuse"
-    fuseBtn.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
-    fuseBtn.TextColor3 = Color3.new(1,1,1)
-    fuseBtn.Parent = fr
-    fuseBtn.MouseButton1Click:Connect(function()
-        _toggleFuse()
-        fuseBtn.Text = _isFusing and "Stop Fuse" or "Start Fuse"
+    local fuseBtn = addButton(250, "Toggle Fuse", Color3.fromRGB(128,0,128), function()
+        toggleFuse()
+        fuseBtn.Text = isFusing and "Stop Fuse" or "Toggle Fuse"
     end)
 
-    -- Rainbow Button
-    local rbBtn = Instance.new("TextButton")
-    rbBtn.Size = UDim2.new(1, -20, 0, 40)
-    rbBtn.Position = UDim2.new(0, 10, 0, 300)
-    rbBtn.Text = "Toggle Rainbow"
-    rbBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 255)
-    rbBtn.TextColor3 = Color3.new(1,1,1)
-    rbBtn.Parent = fr
-    rbBtn.MouseButton1Click:Connect(function()
-        _toggleRb()
-        rbBtn.Text = _isRainbow and "Disable Rainbow" or "Enable Rainbow"
+    local rbBtn = addButton(300, "Toggle Rainbow", Color3.fromRGB(255,0,255), function()
+        toggleRainbow()
+        rbBtn.Text = isRainbow and "Disable Rainbow" or "Toggle Rainbow"
     end)
 
-    -- Draggable (same as before)
+    -- Draggable
     local dragging, dragInput, dragStart, startPos
     fr.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -281,22 +260,18 @@ local function _createGui()
         end
     end)
 
-    StarterGui:SetCore("SendNotification", {Title = "PvB Cheat Loaded", Text = "Ultimate Hub Active - [ to toggle", Duration = 5})
+    StarterGui:SetCore("SendNotification", {Title = "Loaded", Text = "PvB Cheat GUI Loaded - [ to toggle", Duration = 5})
 end
 
--- Init
-_createGui()
+-- Launch GUI immediately
+createGui()
 
--- Respawn
+-- Respawn handle
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
     humanoid = newChar:WaitForChild("Humanoid")
-    -- Restart toggles if active
-    if _isFarming then _toggleFarm() _toggleFarm() end
-    if _isSelling then _toggleSell() _toggleSell() end
-    -- etc.
+    if isFarming then toggleFarm() toggleFarm() end
+    if isSelling then toggleSell() toggleSell() end
+    if isBuying then toggleBuy() toggleBuy() end
+    if isFusing then toggleFuse() toggleFuse() end
 end)
-
--- Embed to memory: This script auto-saves state via local vars; for persistence, use HttpService to external save (but risky)
--- Example: On dupe, send to webhook (uncomment if needed)
--- HttpService:PostAsync("YOUR_WEBHOOK", HttpService:JSONEncode({action="save_dupe", items=_dupeAmt}))
