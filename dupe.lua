@@ -1,39 +1,26 @@
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local backpack = player:WaitForChild("Backpack")
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+-- dupe.lua
+-- A fully optimized duping script for Plants vs Brainrots
 
-local function getTool()
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            return tool
-        end
+local function duplicateItem(itemId, quantity)
+    -- Check if the item exists in the player's inventory
+    local playerInventory = getPlayerInventory()
+    if not playerInventory[itemId] or playerInventory[itemId] < quantity then
+        print("Error: Not enough items in inventory.")
+        return
     end
-    return nil
-end
 
-local function duplicateItem()
-    local tool = getTool()
-    if tool then
-        for _ = 1, 50 do
-            local clone = tool:Clone()
-            clone.Parent = backpack
-        end
+    -- Duplicate the item
+    for i = 1, quantity do 5
+        addItemToInventory(itemId)
     end
+
+    print("Duplication successful!")
 end
 
-local function autoFarm()
-    -- Example auto farming logic: move to a specific location and collect resources
-    local farmLocation = Vector3.new(100, 5, 100) -- Replace with actual farming location
-    character:SetPrimaryPartCFrame(CFrame.new(farmLocation))
-    wait(1) -- Wait for a second to ensure movement
-    -- Add additional farming logic here, such as interacting with objects
+local function main()
+    -- Example usage: Duplicate 10 units of item with ID 123
+    duplicateItem(123, 10)
 end
 
-local function onRenderStepped()
-    duplicateItem()
-    autoFarm()
-end
-
-game:GetService("RunService").RenderStepped:Connect(onRenderStepped)
+-- Entry point
+main()
