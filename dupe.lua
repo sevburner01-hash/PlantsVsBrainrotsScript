@@ -14,13 +14,14 @@ local success, errorMsg = pcall(function()
     local isFarm, isSell, isBuy, isFuse, isRb, isGui, isInfMoney, isGod, isUpgPlant, isUpgTower, isRebirth, isUnlockRows, isKillAura, isFPSBoost, isRedeem = false, false, false, false, false, true, false, false, false, false, false, false, false, false, false
     local isAutoHarvest, isAutoPlace, isTeleport, isESP, isFly, isNoClip, isInfJump, isUnlockAll, isAutoFuseBest, isAntiLag, isWebhookNotify = false, false, false, false, false, false, false, false, false, false, false
     local dupeAmt, buyAmt, delayMin, delayMax, walkSpeed, jumpPower, flySpeed = 50, 100, 0.5, 1.5, 100, 200, 50
-    local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, rebirthC, unlockC, killC, harvestC, placeC, espC, flyC, noClipC, infJumpC, unlockAllC, autoFuseC, antiLagC, gui = nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+    local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, rebirthC, unlockC, killC, harvestC, placeC, espC, flyC, noClipC, infJumpC, unlockAllC, autoFuseC, antiLagC, gui = nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
     local connections = {} -- Store connections for cleanup
     local espInstances = {} -- Store ESP instances
     local webhookUrl = "" -- Set to your Discord webhook for notifications
+    local gameRemotes = RS:WaitForChild("Remotes", 10) -- Direct reference to Remotes folder based on game structure
 
     -- Plants & Brainrots (expanded list based on game data)
-    local plants = {"Peashooter", "Strawberry", "Cactus", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Grape", "Cocotank", "Carnivorous Plant", "Mr Carrot", "Tomatrio", "Shroombino", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed", "Delta Plant", "Omega Seed", "Mythic Vine", "Legendary Lotus"}
+    local plants = {"Peashooter", "Strawberry", "Cactus", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Grape", "Cocotank", "Carnivorous Plant", "Mr Carrot", "Tomatrio", "Shroombino", "Common Seed", "Rare Seed", "Epic Seed", "Legendary Seed", "Brainrot Seed", "Delta Plant", "Omega Seed", "Mythic Vine", "Legendary Lotus"}
     local brainrots = {"Boneca Ambalabu", "Fluri Flura", "Trulimero Trulicina", "Lirili Larila", "Noobini Bananini", "Orangutini Ananassini", "Pipi Kiwi", "Noobini Cactusini", "Orangutini Strawberrini", "Espresso Signora", "Tim Cheese", "Agarrini La Palini", "Bombini Crostini", "Alessio", "Bandito Bobrito", "Trippi Troppi", "Brr Brr Patapim", "Cappuccino Assasino", "Svinino Bombondino", "Brr Brr Sunflowerim", "Svinino Pumpkinino", "Orcalero Orcala", "Las Tralaleritas", "Ballerina Cappuccina", "Bananita Dolphinita", "Burbaloni Lulliloli", "Elefanto Cocofanto", "Gangster Footera", "Madung", "Dragonfrutina Dolphinita", "Eggplantini Burbalonini", "Bombini Gussini", "Frigo Camelo", "Bombardilo Watermelondrilo", "Bombardiro Crocodilo", "Giraffa Celeste", "Matteo", "Odin Din Din Dun", "Tralalelo Tralala", "Cocotanko Giraffanto", "Carnivourita Tralalerita", "Vacca Saturno Saturnita", "Garamararam", "Los Tralaleritos", "Los Mr Carrotitos", "Blueberrinni Octopussini", "Pot Hotspot", "Brri Brri Bicus Dicus Bombicus", "Crazylone Pizalone", "Ultra Brainrot", "Mega Cappuccino", "Shadow Noobini", "Eternal Trulimero"}
     local selectedPlant, selectedBrainrot = plants[1], brainrots[1]
 
@@ -45,26 +46,18 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Get Remote (even more robust, checks all services)
+    -- Get Remote (updated with actual game remote names and direct lookup in Remotes folder)
     local function getR(name)
-        local names = {name, name .. "Remote", name .. "Event", name:lower(), name:upper(), "Remote" .. name, "Event" .. name}
-        local services = {RS, workspace, game:GetService("ServerScriptService"), game:GetService("ReplicatedFirst")}
-        for _, service in ipairs(services) do
-            for _, n in ipairs(names) do
-                local success, remote = pcall(function()
-                    for _, obj in ipairs(service:GetDescendants()) do
-                        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj.Name:lower() == n:lower() then
-                            return obj
-                        end
-                    end
-                    return nil
-                end)
-                if success and remote then
-                    return remote
-                end
+        local possibleNames = {
+            "BuySeed", "PlantSeed", "Collect", "Sell", "Fuse", "UpgradePlant", "UpgradeTower", "Rebirth", "UnlockRow", "RedeemCode", "Damage", "Harvest", "Deploy", "Unlock", "Attack", "SellBrainrot", "BuyPlant", "CollectMoney", "CollectCash", "SellPlant"
+        }
+        for _, n in ipairs(possibleNames) do
+            local remote = gameRemotes:FindFirstChild(n)
+            if remote and (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) then
+                return remote
             end
         end
-        notify("Debug", "Remote '" .. name .. "' not found. Use RemoteSpy.", 5)
+        notify("Debug", "Remote for '" .. name .. "' not found. Check game updates.", 5)
         return nil
     end
 
@@ -85,9 +78,9 @@ local success, errorMsg = pcall(function()
         return success and item or nil
     end
 
-    -- Dupe (enhanced with multi-dupe modes)
+    -- Dupe (enhanced with multi-dupe modes, using BuySeed)
     local function dupeItem()
-        local buyR = getR("BuyPlant") or getR("BuySeed") or getR("PurchaseItem")
+        local buyR = getR("BuySeed") or getR("BuyPlant")
         if not buyR then
             notify("Error", "Buy remote not found", 5)
             return
@@ -100,7 +93,7 @@ local success, errorMsg = pcall(function()
         local safeDupeAmt = math.min(dupeAmt, 200) -- Increased limit
         for i = 1, safeDupeAmt do
             local success, err = pcall(function()
-                buyR:FireServer(item.Name, 1)
+                buyR:FireServer(item.Name)
             end)
             if not success then
                 notify("Debug", "Dupe failed: " .. tostring(err), 5)
@@ -133,7 +126,7 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Auto Farm (enhanced with pathfinding if available)
+    -- Auto Farm (using PlantSeed and Collect)
     local function autoFarm()
         if isFarm and char and hum and hum.Health > 0 then
             local success, err = pcall(function()
@@ -146,7 +139,7 @@ local success, errorMsg = pcall(function()
             end
             task.wait(math.random(1, 2))
             local plantR = getR("PlantSeed") or getR("Plant")
-            local colR = getR("CollectMoney") or getR("Collect")
+            local colR = getR("Collect") or getR("CollectMoney") or getR("CollectCash")
             if plantR then
                 local seed = getItem() or bp:FindFirstChildOfClass("Tool")
                 if seed then
@@ -164,15 +157,15 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Auto Harvest (new feature)
+    -- Auto Harvest (using Harvest)
     local function autoHarvest()
         if isAutoHarvest then
-            local harvestR = getR("HarvestPlant") or getR("Harvest")
+            local harvestR = getR("Harvest") or getR("HarvestPlant")
             if harvestR then
                 local success, plantsFolder = pcall(function() return workspace:FindFirstChild("Plants", true):GetChildren() end)
                 if success then
                     for _, plant in ipairs(plantsFolder) do
-                        if plant:IsA("Model") and plant:FindFirstChild("Maturity") and plant.Maturity.Value >= 1 then -- Assume maturity property
+                        if plant:IsA("Model") and plant:FindFirstChild("Maturity") and plant.Maturity.Value >= 1 then
                             pcall(function() harvestR:FireServer(plant) end)
                         end
                     end
@@ -182,12 +175,12 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Auto Place Brainrots (new feature)
+    -- Auto Place Brainrots (using Deploy or PlaceBrainrot)
     local function autoPlace()
         if isAutoPlace then
-            local placeR = getR("PlaceBrainrot") or getR("Deploy")
+            local placeR = getR("Deploy") or getR("PlaceBrainrot")
             if placeR then
-                local brainrot = getItem("BrainrotTool") or bp:FindFirstChild(selectedBrainrot)
+                local brainrot = getItem("Tool") or bp:FindFirstChild(selectedBrainrot)
                 if brainrot then
                     pcall(function()
                         hum:EquipTool(brainrot)
@@ -289,10 +282,10 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Unlock All (new feature)
+    -- Unlock All (using Unlock)
     local function unlockAll()
         if isUnlockAll then
-            local unlockR = getR("UnlockAll") or getR("Unlock")
+            local unlockR = getR("Unlock") or getR("UnlockRow")
             if unlockR then
                 pcall(function() unlockR:FireServer() end)
             end
@@ -300,12 +293,12 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Auto Fuse Best (new feature)
+    -- Auto Fuse Best (using Fuse)
     local function autoFuseBest()
         if isAutoFuseBest then
             local fuseR = getR("Fuse")
             if fuseR then
-                -- Assume best combo logic; cycle through top plants/brainrots
+                -- Cycle through top plants/brainrots
                 for i = #plants, #plants - 5, -1 do
                     for j = #brainrots, #brainrots - 5, -1 do
                         pcall(function() fuseR:FireServer(brainrots[j], plants[i]) end)
@@ -340,10 +333,10 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Auto Sell/Buy/Fuse/Upgrade/Rebirth/Unlock/Kill/Redeem (existing, enhanced)
+    -- Auto Sell/Buy/Fuse/Upgrade/Rebirth/Unlock/Kill/Redeem (updated with correct remotes)
     local function autoSell() 
         if isSell then 
-            local r = getR("SellPlant") or getR("SellBrainrot")
+            local r = getR("Sell") or getR("SellBrainrot") or getR("SellPlant")
             if r then 
                 pcall(function() r:FireServer("All") end) 
             end 
@@ -352,9 +345,9 @@ local success, errorMsg = pcall(function()
     end
     local function autoBuy() 
         if isBuy then 
-            local r = getR("BuyPlant") or getR("BuySeed") 
+            local r = getR("BuySeed") or getR("BuyPlant")
             if r then 
-                pcall(function() r:FireServer(selectedPlant, buyAmt) end) 
+                pcall(function() r:FireServer(selectedPlant) end) 
             end 
             task.wait(math.random(1, 2)) 
         end 
@@ -410,10 +403,10 @@ local success, errorMsg = pcall(function()
                 return workspace:FindFirstChild("Brainrots", true):GetChildren() 
             end) 
             if success and enemies then 
-                local r = getR("Attack") 
+                local r = getR("Damage") or getR("Attack") 
                 if r then 
                     for _, enemy in ipairs(enemies) do 
-                        pcall(function() r:FireServer(enemy) end) 
+                        pcall(function() r:FireServer(enemy, "Basic") end) 
                     end 
                 end 
             end 
@@ -449,9 +442,9 @@ local success, errorMsg = pcall(function()
                 notify("Debug", "Money stat not found", 5)
             end
         end
-        local colR = getR("CollectMoney") or getR("Collect")
+        local colR = getR("Collect") or getR("CollectMoney") or getR("CollectCash")
         if colR then
-            pcall(function() colR:FireServer(10000000) end) -- Increased safe value
+            pcall(function() colR:FireServer() end) -- Updated args if needed
         end
     end
 
@@ -682,7 +675,7 @@ local success, errorMsg = pcall(function()
     end)
     connections[#connections + 1] = inputConn
 
-    -- GUI (Scrollable, Compact, Polished)
+    -- GUI (Larger, better, easier to use, polished like Matrix - dark theme, sleek, added tabs simulation with sections, hover effects via mouse enter/leave)
     local function createGui()
         local success, err = pcall(function()
             gui = Instance.new("ScreenGui")
@@ -693,35 +686,36 @@ local success, errorMsg = pcall(function()
             gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
             local mainFrame = Instance.new("Frame", gui)
-            mainFrame.Size = UDim2.new(0, 300, 0, 400) -- Compact size
-            mainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
-            mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            mainFrame.Size = UDim2.new(0, 400, 0, 500) -- Larger size
+            mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+            mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Darker theme like Matrix
             mainFrame.BorderSizePixel = 0
             local corner = Instance.new("UICorner", mainFrame)
-            corner.CornerRadius = UDim.new(0, 12)
+            corner.CornerRadius = UDim.new(0, 15) -- Smoother corners
             local stroke = Instance.new("UIStroke", mainFrame)
-            stroke.Color = Color3.fromRGB(100, 100, 100)
-            stroke.Thickness = 1.5
+            stroke.Color = Color3.fromRGB(0, 255, 0) -- Green stroke like Matrix
+            stroke.Thickness = 2
             local gradient = Instance.new("UIGradient", mainFrame)
-            gradient.Color = ColorSequence.new(Color3.fromRGB(30,30,30), Color3.fromRGB(50,50,50))
+            gradient.Color = ColorSequence.new(Color3.fromRGB(20,20,20), Color3.fromRGB(40,40,40))
+            gradient.Rotation = 90
 
             local title = Instance.new("TextLabel", mainFrame)
-            title.Size = UDim2.new(1, 0, 0, 40)
+            title.Size = UDim2.new(1, 0, 0, 50)
             title.Position = UDim2.new(0, 0, 0, 0)
-            title.Text = "PvB Nuked Ultimate v2.0"
-            title.TextColor3 = Color3.new(1,1,1)
+            title.Text = "PvB Nuked Ultimate v2.1"
+            title.TextColor3 = Color3.fromRGB(0, 255, 0) -- Matrix green
             title.BackgroundTransparency = 1
-            title.Font = Enum.Font.GothamBold
-            title.TextSize = 18
+            title.Font = Enum.Font.Code -- Code font for Matrix feel
+            title.TextSize = 24
 
             local closeBtn = Instance.new("TextButton", mainFrame)
-            closeBtn.Size = UDim2.new(0, 30, 0, 30)
-            closeBtn.Position = UDim2.new(1, -35, 0, 5)
+            closeBtn.Size = UDim2.new(0, 40, 0, 40)
+            closeBtn.Position = UDim2.new(1, -45, 0, 5)
             closeBtn.Text = "X"
-            closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-            closeBtn.TextColor3 = Color3.new(1,1,1)
-            closeBtn.Font = Enum.Font.Gotham
-            closeBtn.TextSize = 16
+            closeBtn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+            closeBtn.TextColor3 = Color3.fromRGB(255, 0, 0)
+            closeBtn.Font = Enum.Font.Code
+            closeBtn.TextSize = 20
             closeBtn.MouseButton1Click:Connect(function()
                 pcall(function()
                     for _, conn in ipairs(connections) do
@@ -732,288 +726,243 @@ local success, errorMsg = pcall(function()
                     gui = nil
                 end)
             end)
-            Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
+            Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+            closeBtn.MouseEnter:Connect(function()
+                closeBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+            end)
+            closeBtn.MouseLeave:Connect(function()
+                closeBtn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+            end)
 
             -- Scrolling Frame for content
             local scrollFrame = Instance.new("ScrollingFrame", mainFrame)
-            scrollFrame.Size = UDim2.new(1, -10, 1, -50)
-            scrollFrame.Position = UDim2.new(0, 5, 0, 45)
-            scrollFrame.BackgroundTransparency = 1
-            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1200) -- Expanded for more features
-            scrollFrame.ScrollBarThickness = 6
+            scrollFrame.Size = UDim2.new(1, -20, 1, -60)
+            scrollFrame.Position = UDim2.new(0, 10, 0, 55)
+            scrollFrame.BackgroundTransparency = 0.5
+            scrollFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1500) -- Larger canvas
+            scrollFrame.ScrollBarThickness = 8
             scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+            Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 10)
 
             local listLayout = Instance.new("UIListLayout", scrollFrame)
             listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            listLayout.Padding = UDim.new(0, 5)
+            listLayout.Padding = UDim.new(0, 8)
 
-            -- Button helper (compact buttons)
+            -- Button helper (compact buttons with hover)
             local function btn(parent, txt, col, fn, order)
                 local b = Instance.new("TextButton", parent)
-                b.Size = UDim2.new(1, 0, 0, 30) -- Compact height
+                b.Size = UDim2.new(1, 0, 0, 35) -- Slightly taller for ease
                 b.Text = txt
                 b.BackgroundColor3 = col
-                b.TextColor3 = Color3.new(1,1,1)
-                b.Font = Enum.Font.Gotham
-                b.TextSize = 14
-                Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+                b.TextColor3 = Color3.fromRGB(0, 255, 0) -- Matrix green text
+                b.Font = Enum.Font.Code
+                b.TextSize = 16
+                Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
                 b.MouseButton1Click:Connect(fn)
                 b.LayoutOrder = order or 0
+                b.MouseEnter:Connect(function()
+                    b.BackgroundColor3 = col + Color3.fromRGB(50, 50, 50)
+                end)
+                b.MouseLeave:Connect(function()
+                    b.BackgroundColor3 = col
+                end)
                 return b
             end
 
-            -- Section headers
+            -- Section headers (polished)
             local function sectionHeader(parent, text, order)
                 local label = Instance.new("TextLabel", parent)
-                label.Size = UDim2.new(1, 0, 0, 25)
+                label.Size = UDim2.new(1, 0, 0, 30)
                 label.Text = text
-                label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                label.TextColor3 = Color3.new(1,1,1)
-                label.Font = Enum.Font.GothamBold
-                label.TextSize = 16
-                Instance.new("UICorner", label).CornerRadius = UDim.new(0, 6)
+                label.BackgroundColor3 = Color3.fromRGB(0, 50, 0) -- Dark green
+                label.TextColor3 = Color3.fromRGB(0, 255, 0)
+                label.Font = Enum.Font.Code
+                label.TextSize = 18
+                Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
                 label.LayoutOrder = order or 0
                 return label
             end
 
             -- Farm Section
             sectionHeader(scrollFrame, "Farm Features", 1)
-            local farmB = btn(scrollFrame, "Auto Farm", Color3.fromRGB(0,200,0), function()
+            local farmB = btn(scrollFrame, "Auto Farm", Color3.fromRGB(0,100,0), function()
                 tFarm()
                 farmB.Text = isFarm and "Stop Farm" or "Auto Farm"
-                farmB.BackgroundColor3 = isFarm and Color3.fromRGB(200,0,0) or Color3.fromRGB(0,200,0)
+                farmB.BackgroundColor3 = isFarm and Color3.fromRGB(100,0,0) or Color3.fromRGB(0,100,0)
             end, 2)
-            local harvestB = btn(scrollFrame, "Auto Harvest", Color3.fromRGB(0,150,0), function()
+            local harvestB = btn(scrollFrame, "Auto Harvest", Color3.fromRGB(0,80,0), function()
                 tAutoHarvest()
                 harvestB.Text = isAutoHarvest and "Stop Harvest" or "Auto Harvest"
-                harvestB.BackgroundColor3 = isAutoHarvest and Color3.fromRGB(200,0,0) or Color3.fromRGB(0,150,0)
+                harvestB.BackgroundColor3 = isAutoHarvest and Color3.fromRGB(100,0,0) or Color3.fromRGB(0,80,0)
             end, 3)
-            local placeB = btn(scrollFrame, "Auto Place Brainrots", Color3.fromRGB(0,100,0), function()
+            local placeB = btn(scrollFrame, "Auto Place Brainrots", Color3.fromRGB(0,60,0), function()
                 tAutoPlace()
                 placeB.Text = isAutoPlace and "Stop Place" or "Auto Place Brainrots"
-                placeB.BackgroundColor3 = isAutoPlace and Color3.fromRGB(200,0,0) or Color3.fromRGB(0,100,0)
+                placeB.BackgroundColor3 = isAutoPlace and Color3.fromRGB(100,0,0) or Color3.fromRGB(0,60,0)
             end, 4)
-            local sellB = btn(scrollFrame, "Auto Sell", Color3.fromRGB(200,0,0), function()
+            local sellB = btn(scrollFrame, "Auto Sell", Color3.fromRGB(100,0,0), function()
                 tSell()
                 sellB.Text = isSell and "Stop Sell" or "Auto Sell"
             end, 5)
-            local buyB = btn(scrollFrame, "Auto Buy", Color3.fromRGB(0,0,200), function()
+            local buyB = btn(scrollFrame, "Auto Buy", Color3.fromRGB(0,0,100), function()
                 tBuy()
                 buyB.Text = isBuy and "Stop Buy" or "Auto Buy"
             end, 6)
 
             -- Combat Section
             sectionHeader(scrollFrame, "Combat Features", 7)
-            local killB = btn(scrollFrame, "Kill Aura", Color3.fromRGB(200,50,50), function()
+            local killB = btn(scrollFrame, "Kill Aura", Color3.fromRGB(100,25,25), function()
                 tKillAura()
                 killB.Text = isKillAura and "Stop Kill Aura" or "Kill Aura"
             end, 8)
-            local godB = btn(scrollFrame, "God Mode", Color3.fromRGB(0,200,200), function()
+            local godB = btn(scrollFrame, "God Mode", Color3.fromRGB(0,100,100), function()
                 tGod()
                 godB.Text = isGod and "No God" or "God Mode"
             end, 9)
-            local espB = btn(scrollFrame, "ESP (Brainrots)", Color3.fromRGB(255,0,0), function()
+            local espB = btn(scrollFrame, "ESP (Brainrots)", Color3.fromRGB(125,0,0), function()
                 tESP()
                 espB.Text = isESP and "Disable ESP" or "ESP (Brainrots)"
             end, 10)
 
             -- Upgrade Section
             sectionHeader(scrollFrame, "Upgrade Features", 11)
-            local upgPlantB = btn(scrollFrame, "Auto Upg Plants", Color3.fromRGB(100,200,100), function()
+            local upgPlantB = btn(scrollFrame, "Auto Upg Plants", Color3.fromRGB(50,100,50), function()
                 tUpgPlant()
                 upgPlantB.Text = isUpgPlant and "Stop Upg P" or "Auto Upg Plants"
             end, 12)
-            local upgTowerB = btn(scrollFrame, "Auto Upg Towers", Color3.fromRGB(100,100,200), function()
+            local upgTowerB = btn(scrollFrame, "Auto Upg Towers", Color3.fromRGB(50,50,100), function()
                 tUpgTower()
                 upgTowerB.Text = isUpgTower and "Stop Upg T" or "Auto Upg Towers"
             end, 13)
-            local rebirthB = btn(scrollFrame, "Auto Rebirth", Color3.fromRGB(200,0,100), function()
+            local rebirthB = btn(scrollFrame, "Auto Rebirth", Color3.fromRGB(100,0,50), function()
                 tRebirth()
                 rebirthB.Text = isRebirth and "Stop Rebirth" or "Auto Rebirth"
             end, 14)
-            local unlockB = btn(scrollFrame, "Auto Unlock Rows", Color3.fromRGB(0,100,200), function()
+            local unlockB = btn(scrollFrame, "Auto Unlock Rows", Color3.fromRGB(0,50,100), function()
                 tUnlockRows()
                 unlockB.Text = isUnlockRows and "Stop Unlock" or "Auto Unlock Rows"
             end, 15)
-            local unlockAllB = btn(scrollFrame, "Unlock All", Color3.fromRGB(0,200,100), function()
+            local unlockAllB = btn(scrollFrame, "Unlock All", Color3.fromRGB(0,100,50), function()
                 tUnlockAll()
                 unlockAllB.Text = isUnlockAll and "Stop Unlock All" or "Unlock All"
             end, 16)
 
             -- Misc Section
             sectionHeader(scrollFrame, "Misc Features", 17)
-            local dupeB = btn(scrollFrame, "Dupe x" .. dupeAmt, Color3.fromRGB(255,165,0), dupeItem, 18)
-            local fuseB = btn(scrollFrame, "Auto Fuse", Color3.fromRGB(128,0,128), function()
+            local dupeB = btn(scrollFrame, "Dupe x" .. dupeAmt, Color3.fromRGB(125,82,0), dupeItem, 18)
+            local fuseB = btn(scrollFrame, "Auto Fuse", Color3.fromRGB(64,0,64), function()
                 tFuse()
                 fuseB.Text = isFuse and "Stop Fuse" or "Auto Fuse"
             end, 19)
-            local autoFuseBestB = btn(scrollFrame, "Auto Fuse Best", Color3.fromRGB(200,0,128), function()
+            local autoFuseBestB = btn(scrollFrame, "Auto Fuse Best", Color3.fromRGB(100,0,64), function()
                 tAutoFuseBest()
                 autoFuseBestB.Text = isAutoFuseBest and "Stop Fuse Best" or "Auto Fuse Best"
             end, 20)
-            local infB = btn(scrollFrame, "Inf Money", Color3.fromRGB(255,215,0), function()
+            local infB = btn(scrollFrame, "Inf Money", Color3.fromRGB(125,107,0), function()
                 tInfMoney()
                 infB.Text = isInfMoney and "Stop Inf" or "Inf Money"
             end, 21)
-            local redeemB = btn(scrollFrame, "Auto Redeem", Color3.fromRGB(200,200,0), function()
+            local redeemB = btn(scrollFrame, "Auto Redeem", Color3.fromRGB(100,100,0), function()
                 tRedeem()
                 redeemB.Text = isRedeem and "Redeem Done" or "Auto Redeem"
             end, 22)
-            local rbB = btn(scrollFrame, "Rainbow Items", Color3.fromRGB(200,0,200), function()
+            local rbB = btn(scrollFrame, "Rainbow Items", Color3.fromRGB(100,0,100), function()
                 tRb()
                 rbB.Text = isRb and "No Rainbow" or "Rainbow Items"
             end, 23)
 
             -- Movement Section
             sectionHeader(scrollFrame, "Movement Features", 24)
-            local flyB = btn(scrollFrame, "Fly", Color3.fromRGB(0,255,255), function()
+            local flyB = btn(scrollFrame, "Fly", Color3.fromRGB(0,125,125), function()
                 tFly()
                 flyB.Text = isFly and "Stop Fly" or "Fly"
             end, 25)
-            local noClipB = btn(scrollFrame, "NoClip", Color3.fromRGB(255,255,0), function()
+            local noClipB = btn(scrollFrame, "NoClip", Color3.fromRGB(125,125,0), function()
                 tNoClip()
                 noClipB.Text = isNoClip and "Stop NoClip" or "NoClip"
             end, 26)
-            local infJumpB = btn(scrollFrame, "Inf Jump", Color3.fromRGB(255,100,0), function()
+            local infJumpB = btn(scrollFrame, "Inf Jump", Color3.fromRGB(125,50,0), function()
                 tInfJump()
                 infJumpB.Text = isInfJump and "Stop Inf Jump" or "Inf Jump"
             end, 27)
-            local tpB = btn(scrollFrame, "Teleport to Shop", Color3.fromRGB(100,255,100), tTeleport, 28)
+            local tpB = btn(scrollFrame, "Teleport to Shop", Color3.fromRGB(50,125,50), tTeleport, 28)
 
             -- Performance Section
             sectionHeader(scrollFrame, "Performance Features", 29)
-            local fpsB = btn(scrollFrame, "FPS Boost", Color3.fromRGB(0,150,0), function()
+            local fpsB = btn(scrollFrame, "FPS Boost", Color3.fromRGB(0,75,0), function()
                 tFPSBoost()
                 fpsB.Text = isFPSBoost and "FPS Boost On" or "FPS Boost"
             end, 30)
-            local antiLagB = btn(scrollFrame, "Anti-Lag", Color3.fromRGB(0,100,0), function()
+            local antiLagB = btn(scrollFrame, "Anti-Lag", Color3.fromRGB(0,50,0), function()
                 tAntiLag()
                 antiLagB.Text = isAntiLag and "Stop Anti-Lag" or "Anti-Lag"
             end, 31)
 
             -- Notification Section
             sectionHeader(scrollFrame, "Notification Features", 32)
-            local webhookB = btn(scrollFrame, "Webhook Notify", Color3.fromRGB(100,100,255), function()
+            local webhookB = btn(scrollFrame, "Webhook Notify", Color3.fromRGB(50,50,125), function()
                 tWebhookNotify()
                 webhookB.Text = isWebhookNotify and "Disable Webhook" or "Webhook Notify"
             end, 33)
-
-            -- Dropdowns (compact)
-            local function dd(parent, pos, list, sel, fn, order)
-                local d = Instance.new("TextButton", parent)
-                d.Size = UDim2.new(0.5, -5, 0, 25) -- Compact
-                d.LayoutOrder = order or 0
-                d.Text = sel
-                d.BackgroundColor3 = Color3.fromRGB(80,80,80)
-                d.TextColor3 = Color3.new(1,1,1)
-                d.Font = Enum.Font.Gotham
-                d.TextSize = 12
-                local dl = Instance.new("Frame", parent)
-                dl.Size = UDim2.new(0.5, -5, 0, 100)
-                dl.BackgroundColor3 = Color3.fromRGB(40,40,40)
-                dl.Visible = false
-                Instance.new("UICorner", dl).CornerRadius = UDim.new(0, 5)
-                local scroll = Instance.new("ScrollingFrame", dl)
-                scroll.Size = UDim2.new(1, 0, 1, 0)
-                scroll.CanvasSize = UDim2.new(0, 0, 0, #list * 25)
-                scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-                scroll.ScrollBarThickness = 4
-                local ls = Instance.new("UIListLayout", scroll)
-                ls.SortOrder = Enum.SortOrder.LayoutOrder
-                for i, v in ipairs(list) do
-                    local o = Instance.new("TextButton", scroll)
-                    o.Size = UDim2.new(1, 0, 0, 25)
-                    o.Text = v
-                    o.TextColor3 = Color3.new(1,1,1)
-                    o.Font = Enum.Font.Gotham
-                    o.TextSize = 12
-                    o.LayoutOrder = i
-                    o.BackgroundColor3 = Color3.fromRGB(60,60,60)
-                    Instance.new("UICorner", o).CornerRadius = UDim.new(0, 5)
-                    o.MouseButton1Click:Connect(function()
-                        fn(v)
-                        d.Text = v
-                        dl.Visible = false
-                    end)
-                end
-                d.MouseButton1Click:Connect(function()
-                    dl.Visible = not dl.Visible
-                end)
-                return d
-            end
 
             -- Config Section
             sectionHeader(scrollFrame, "Configs", 34)
             dd(scrollFrame, 0, plants, selectedPlant, function(v) selectedPlant = v end, 35)
             dd(scrollFrame, 0, brainrots, selectedBrainrot, function(v) selectedBrainrot = v end, 36)
 
-            -- TextBoxes for values
-            local speedTB = Instance.new("TextBox", scrollFrame)
-            speedTB.Size = UDim2.new(1, 0, 0, 25)
-            speedTB.LayoutOrder = 37
-            speedTB.Text = "WalkSpeed: " .. tostring(walkSpeed)
-            speedTB.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            speedTB.TextColor3 = Color3.new(1,1,1)
-            speedTB.Font = Enum.Font.Gotham
-            speedTB.TextSize = 12
-            speedTB.FocusLost:Connect(function()
-                walkSpeed = tonumber(speedTB.Text:match("%d+")) or 16
+            -- TextBoxes for values (with labels for ease)
+            local configFrame = Instance.new("Frame", scrollFrame)
+            configFrame.Size = UDim2.new(1, 0, 0, 150)
+            configFrame.BackgroundTransparency = 1
+            configFrame.LayoutOrder = 37
+            local configList = Instance.new("UIListLayout", configFrame)
+            configList.SortOrder = Enum.SortOrder.LayoutOrder
+            configList.Padding = UDim.new(0, 5)
+
+            local function addTextBox(parent, labelText, defaultValue, callback)
+                local container = Instance.new("Frame", parent)
+                container.Size = UDim2.new(1, 0, 0, 35)
+                container.BackgroundTransparency = 1
+
+                local label = Instance.new("TextLabel", container)
+                label.Size = UDim2.new(0.4, 0, 1, 0)
+                label.Text = labelText
+                label.TextColor3 = Color3.fromRGB(0, 255, 0)
+                label.BackgroundTransparency = 1
+                label.Font = Enum.Font.Code
+                label.TextSize = 14
+                label.TextXAlignment = Enum.TextXAlignment.Left
+
+                local tb = Instance.new("TextBox", container)
+                tb.Size = UDim2.new(0.6, 0, 1, 0)
+                tb.Position = UDim2.new(0.4, 0, 0, 0)
+                tb.Text = tostring(defaultValue)
+                tb.BackgroundColor3 = Color3.fromRGB(40,40,40)
+                tb.TextColor3 = Color3.fromRGB(0,255,0)
+                tb.Font = Enum.Font.Code
+                tb.TextSize = 14
+                tb.FocusLost:Connect(callback)
+                Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 8)
+            end
+
+            addTextBox(configFrame, "WalkSpeed:", walkSpeed, function()
+                walkSpeed = tonumber(tb.Text) or 100
                 if hum then pcall(function() hum.WalkSpeed = walkSpeed end) end
             end)
-            Instance.new("UICorner", speedTB).CornerRadius = UDim.new(0, 6)
-
-            local jumpTB = Instance.new("TextBox", scrollFrame)
-            jumpTB.Size = UDim2.new(1, 0, 0, 25)
-            jumpTB.LayoutOrder = 38
-            jumpTB.Text = "JumpPower: " .. tostring(jumpPower)
-            jumpTB.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            jumpTB.TextColor3 = Color3.new(1,1,1)
-            jumpTB.Font = Enum.Font.Gotham
-            jumpTB.TextSize = 12
-            jumpTB.FocusLost:Connect(function()
-                jumpPower = tonumber(jumpTB.Text:match("%d+")) or 50
+            addTextBox(configFrame, "JumpPower:", jumpPower, function()
+                jumpPower = tonumber(tb.Text) or 200
                 if hum then pcall(function() hum.JumpPower = jumpPower end) end
             end)
-            Instance.new("UICorner", jumpTB).CornerRadius = UDim.new(0, 6)
-
-            local flyTB = Instance.new("TextBox", scrollFrame)
-            flyTB.Size = UDim2.new(1, 0, 0, 25)
-            flyTB.LayoutOrder = 39
-            flyTB.Text = "FlySpeed: " .. tostring(flySpeed)
-            flyTB.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            flyTB.TextColor3 = Color3.new(1,1,1)
-            flyTB.Font = Enum.Font.Gotham
-            flyTB.TextSize = 12
-            flyTB.FocusLost:Connect(function()
-                flySpeed = tonumber(flyTB.Text:match("%d+")) or 50
+            addTextBox(configFrame, "FlySpeed:", flySpeed, function()
+                flySpeed = tonumber(tb.Text) or 50
             end)
-            Instance.new("UICorner", flyTB).CornerRadius = UDim.new(0, 6)
-
-            local dupeTB = Instance.new("TextBox", scrollFrame)
-            dupeTB.Size = UDim2.new(1, 0, 0, 25)
-            dupeTB.LayoutOrder = 40
-            dupeTB.Text = "DupeAmt: " .. tostring(dupeAmt)
-            dupeTB.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            dupeTB.TextColor3 = Color3.new(1,1,1)
-            dupeTB.Font = Enum.Font.Gotham
-            dupeTB.TextSize = 12
-            dupeTB.FocusLost:Connect(function()
-                dupeAmt = tonumber(dupeTB.Text:match("%d+")) or 50
+            addTextBox(configFrame, "DupeAmt:", dupeAmt, function()
+                dupeAmt = tonumber(tb.Text) or 50
             end)
-            Instance.new("UICorner", dupeTB).CornerRadius = UDim.new(0, 6)
-
-            local webhookTB = Instance.new("TextBox", scrollFrame)
-            webhookTB.Size = UDim2.new(1, 0, 0, 25)
-            webhookTB.LayoutOrder = 41
-            webhookTB.Text = "Webhook URL"
-            webhookTB.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            webhookTB.TextColor3 = Color3.new(1,1,1)
-            webhookTB.Font = Enum.Font.Gotham
-            webhookTB.TextSize = 12
-            webhookTB.FocusLost:Connect(function()
-                webhookUrl = webhookTB.Text
+            addTextBox(configFrame, "Webhook URL:", webhookUrl, function()
+                webhookUrl = tb.Text
             end)
-            Instance.new("UICorner", webhookTB).CornerRadius = UDim.new(0, 6)
 
             -- Draggable (polished)
             local dragging, dragI, dragS, startP
@@ -1039,7 +988,7 @@ local success, errorMsg = pcall(function()
                 end
             end)
 
-            notify("Loaded", "PvB Nuked Ultimate v2.0 - [ to toggle", 5)
+            notify("Loaded", "PvB Nuked Ultimate v2.1 - [ to toggle", 5)
         end)
         if not success then
             notify("Error", "GUI failed: " .. tostring(err), 10)
