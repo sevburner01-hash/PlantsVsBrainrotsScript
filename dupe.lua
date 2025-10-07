@@ -1,4 +1,3 @@
-```lua
 local P, R, U, S, RS = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("StarterGui"), game:GetService("ReplicatedStorage")
 local plr, bp, char, hum = P.LocalPlayer, plr:WaitForChild("Backpack"), plr.Character or plr.CharacterAdded:Wait(), char:WaitForChild("Humanoid")
 
@@ -8,9 +7,9 @@ local isFarm, isSell, isBuy, isFuse, isRb, isGui, isInfMoney, isGod, isUpgPlant,
 local dupeAmt, buyAmt, delayMin, delayMax, walkSpeed = 50, 100, 0.2, 1, 100
 local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, gui = nil, nil, nil, nil, nil, nil, nil, nil
 
--- Plants & Brainrots (complete list for Plants Vs Brainrots)
-local plants = {"Peashooter", "Strawberry", "Cactus", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Cocotank", "Carnivorous Plant", "Mr Carrot", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed"}
-local brainrots = {"Orangutini Ananassini", "Noobini Bananini", "Svinino Bombondino", "Brr Brr Patapim", "Bananita Dolphinita", "Burbaloni Lulliloli", "Bombardilo Crocodilo", "Girafa Celeste", "Tralalero Tralala", "Los Tralaleritos"}
+-- Updated Plants & Brainrots lists from game data
+local plants = {"Cactus", "Strawberry", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Grape", "Cocotank", "Carnivorous Plant", "Mr Carrot", "Tomatrio", "Shroombino", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed"}
+local brainrots = {"Boneca Ambalabu", "Fluri Flura", "Trulimero Trulicina", "Lirili Larila", "Noobini Bananini", "Orangutini Ananassini", "Pipi Kiwi", "Noobini Cactusini", "Orangutini Strawberrini", "Espresso Signora", "Tim Cheese", "Agarrini La Palini", "Bombini Crostini", "Alessio", "Bandito Bobrito", "Trippi Troppi", "Brr Brr Patapim", "Cappuccino Assasino", "Svinino Bombondino", "Brr Brr Sunflowerim", "Svinino Pumpkinino", "Orcalero Orcala", "Las Tralaleritas", "Ballerina Cappuccina", "Bananita Dolphinita", "Burbaloni Lulliloli", "Elefanto Cocofanto", "Gangster Footera", "Madung", "Dragonfrutina Dolphinita", "Eggplantini Burbalonini", "Bombini Gussini", "Frigo Camelo", "Bombardilo Watermelondrilo", "Bombardiro Crocodilo", "Giraffa Celeste", "Matteo", "Odin Din Din Dun", "Tralalelo Tralala", "Cocotanko Giraffanto", "Carnivourita Tralalerita", "Vacca Saturno Saturnita", "Garamararam", "Los Tralaleritos", "Los Mr Carrotitos", "Blueberrinni Octopussini", "Pot Hotspot", "Brri Brri Bicus Dicus Bombicus", "Crazylone Pizalone"}
 local selectedPlant, selectedBrainrot = plants[1], brainrots[1]
 
 -- Get Remote (silent fail)
@@ -26,9 +25,9 @@ local function getItem()
     return nil
 end
 
--- Dupe (server-synced, no money check)
+-- Dupe (server-synced, buy loop for dupe)
 local function dupeItem()
-    local buyR = getR("BuyPlant") or getR("PurchaseSeed")
+    local buyR = getR("BuyPlant") or getR("BuySeed")
     if not buyR then return end
     local item = getItem() or {Name = selectedPlant}
     for i = 1, dupeAmt do
@@ -51,7 +50,7 @@ local function autoFarm()
     if isFarm and char and hum.Health > 0 then
         hum:MoveTo(farmPos)
         task.wait(math.random(1, 2))
-        local plantR, colR = getR("Plant"), getR("Collect")
+        local plantR, colR = getR("PlantSeed"), getR("CollectMoney")
         if plantR then
             local seed = getItem() or bp:FindFirstChildOfClass("Tool")
             if seed then
@@ -75,16 +74,15 @@ local function autoUpgTower() if isUpgTower then local r = getR("UpgradeTower") 
 -- Infinite Money (hook FireServer)
 local function hookInfMoney()
     local mt = getrawmetatable(game)
-    if not mt then return end
     local old = mt.__namecall
     setreadonly(mt, false)
     mt.__namecall = newcclosure(function(self, ...)
         local args = {...}
-        if getnamecallmethod() == "FireServer" and self.Name == "Collect" then
+        if getnamecallmethod() == "FireServer" and self.Name == "CollectMoney" then
             args[1] = math.huge
         end
         return old(self, unpack(args))
-    end)
+    end
     setreadonly(mt, true)
 end
 
@@ -95,7 +93,7 @@ local function tBuy() isBuy = not isBuy buyC = isBuy and R.Heartbeat:Connect(aut
 local function tFuse() isFuse = not isFuse fuseC = isFuse and R.Heartbeat:Connect(autoFuse) or fuseC and fuseC:Disconnect() end
 local function tRb() isRb = not isRb end
 local function tGui() isGui = not isGui if gui then gui.Enabled = isGui end end
-local function tInfMoney() isInfMoney = not isInfMoney if isInfMoney then hookInfMoney() infMoneyC = R.Heartbeat:Connect(function() local r = getR("Collect") if r then r:FireServer() end end) elseif infMoneyC then infMoneyC:Disconnect() end end
+local function tInfMoney() isInfMoney = not isInfMoney if isInfMoney then hookInfMoney() infMoneyC = R.Heartbeat:Connect(function() local r = getR("CollectMoney") if r then r:FireServer() end end) elseif infMoneyC then infMoneyC:Disconnect() end end
 local function tGod() isGod = not isGod hum.MaxHealth = isGod and math.huge or 100 hum.Health = isGod and math.huge or 100 end
 local function tUpgPlant() isUpgPlant = not isUpgPlant upgPlantC = isUpgPlant and R.Heartbeat:Connect(autoUpgPlant) or upgPlantC and upgPlantC:Disconnect() end
 local function tUpgTower() isUpgTower = not isUpgTower upgTowerC = isUpgTower and R.Heartbeat:Connect(autoUpgTower) or upgTowerC and upgTowerC:Disconnect() end
@@ -106,7 +104,7 @@ U.InputBegan:Connect(function(i, p) if not p and i.KeyCode == Enum.KeyCode.LeftB
 -- GUI
 local function createGui()
     gui = Instance.new("ScreenGui")
-    gui.Name = "PvB"
+    gui.Name = "PvBCheat"
     gui.Parent = plr.PlayerGui
     gui.ResetOnSpawn = false
     gui.Enabled = isGui
