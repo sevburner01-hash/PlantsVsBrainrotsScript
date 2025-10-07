@@ -3,14 +3,20 @@ local plr, bp, char, hum = P.LocalPlayer, plr:WaitForChild("Backpack"), plr.Char
 
 -- Config
 local farmPos = Vector3.new(0, 5, 0) -- Your plot center
-local isFarm, isSell, isBuy, isFuse, isRb, isGui, isInfMoney, isGod, isUpgPlant, isUpgTower = false, false, false, false, false, true, false, false, false, false
-local dupeAmt, buyAmt, delayMin, delayMax, walkSpeed = 50, 100, 0.2, 1, 100
-local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, gui = nil, nil, nil, nil, nil, nil, nil, nil
+local isFarm, isSell, isBuy, isFuse, isRb, isGui, isInfMoney, isGod, isUpgPlant, isUpgTower, isRebirth, isUnlockRows, isKillAura, isFPSBoost, isRedeem = false, false, false, false, false, true, false, false, false, false, false, false, false, false, false
+local dupeAmt, buyAmt, delayMin, delayMax, walkSpeed, maxRebirth, maxRows = 50, 100, 0.2, 1, 100, 2, 7
+local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, rebirthC, unlockC, killC, gui = nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 
--- Updated Plants & Brainrots lists from game data
-local plants = {"Cactus", "Strawberry", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Grape", "Cocotank", "Carnivorous Plant", "Mr Carrot", "Tomatrio", "Shroombino", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed"}
-local brainrots = {"Boneca Ambalabu", "Fluri Flura", "Trulimero Trulicina", "Lirili Larila", "Noobini Bananini", "Orangutini Ananassini", "Pipi Kiwi", "Noobini Cactusini", "Orangutini Strawberrini", "Espresso Signora", "Tim Cheese", "Agarrini La Palini", "Bombini Crostini", "Alessio", "Bandito Bobrito", "Trippi Troppi", "Brr Brr Patapim", "Cappuccino Assasino", "Svinino Bombondino", "Brr Brr Sunflowerim", "Svinino Pumpkinino", "Orcalero Orcala", "Las Tralaleritas", "Ballerina Cappuccina", "Bananita Dolphinita", "Burbaloni Lulliloli", "Elefanto Cocofanto", "Gangster Footera", "Madung", "Dragonfrutina Dolphinita", "Eggplantini Burbalonini", "Bombini Gussini", "Frigo Camelo", "Bombardilo Watermelondrilo", "Bombardiro Crocodilo", "Giraffa Celeste", "Matteo", "Odin Din Din Dun", "Tralalelo Tralala", "Cocotanko Giraffanto", "Carnivourita Tralalerita", "Vacca Saturno Saturnita", "Garamararam", "Los Tralaleritos", "Los Mr Carrotitos", "Blueberrinni Octopussini", "Pot Hotspot", "Brri Brri Bicus Dicus Bombicus", "Crazylone Pizalone"}
+-- Plants & Brainrots (expanded full list from game data and recipes)
+local plants = {"Peashooter", "Strawberry", "Cactus", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Grape", "Cocotank", "Carnivorous Plant", "Mr Carrot", "Tomatrio", "Shroombino", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed", "Blueberrinni Octopussini", "Pot Hotspot", "Brri Brri Bicus Dicus Bombicus", "Crazylone Pizalone", "Los Mr Carrotitos", "Vacca Saturno Saturnita", "Garamararam", "Los Tralaleritos", "Cocotanko Giraffanto", "Carnivourita Tralalerita", "Odin Din Din Dun", "Matteo", "Giraffa Celeste", "Bombardiro Crocodilo", "Bombardilo Watermelondrilo", "Frigo Camelo", "Bombini Gussini", "Eggplantini Burbalonini", "Burbaloni Lulliloli", "Elefanto Cocofanto", "Ballerina Cappuccina", "Las Tralaleritas", "Orcalero Orcala", "Svinino Pumpkinino", "Brr Brr Sunflowerim", "Svinino Bombondino", "Cappuccino Assasino", "Brr Brr Patapim", "Trippi Troppi", "Bandito Bobrito", "Alessio", "Bombini Crostini", "Agarrini La Palini", "Tim Cheese", "Espresso Signora", "Orangutini Strawberrini", "Noobini Cactusini", "Pipi Kiwi", "Orangutini Ananassini", "Noobini Bananini", "Trulimero Trulicina", "Lirili Larila", "Fluri Flura", "Boneca Ambalabu"}
+local brainrots = {"Boneca Ambalabu", "Fluri Flura", "Trulimero Trulicina", "Lirili Larila", "Noobini Bananini", "Orangutini Ananassini", "Pipi Kiwi", "Noobini Cactusini", "Orangutini Strawberrini", "Espresso Signora", "Tim Cheese", "Agarrini La Palini", "Bombini Crostini", "Alessio", "Bandito Bobrito", "Trippi Troppi", "Brr Brr Patapim", "Cappuccino Assasino", "Svinino Bombondino", "Brr Brr Sunflowerim", "Svinino Pumpkinino", "Orcalero Orcala", "Las Tralaleritas", "Ballerina Cappuccina", "Bananita Dolphinita", "Burbaloni Lulliloli", "Gangster Footera", "Madung", "Dragonfrutina Dolphinita", "Eggplantini Burbalonini", "Bombini Gussini", "Frigo Camelo", "Bombardilo Watermelondrilo", "Bombardiro Crocodilo", "Giraffa Celeste", "Matteo", "Odin Din Din Dun", "Tralalelo Tralala", "Cocotanko Giraffanto", "Carnivourita Tralalerita", "Vacca Saturno Saturnita", "Garamararam", "Los Tralaleritos", "Los Mr Carrotitos", "Blueberrinni Octopussini", "Pot Hotspot", "Brri Brri Bicus Dicus Bombicus", "Crazylone Pizalone"}
 local selectedPlant, selectedBrainrot = plants[1], brainrots[1]
+
+-- Rarity for auto sell
+local sellRarity = {"Rare", "Epic", "Legendary"}
+
+-- Codes
+local codes = {"STACKS", "frozen", "based", "latest!"}
 
 -- Get Remote (silent fail)
 local function getR(name)
@@ -25,7 +31,7 @@ local function getItem()
     return nil
 end
 
--- Dupe (server-synced, buy loop for dupe)
+-- Dupe (server-synced, buy loop)
 local function dupeItem()
     local buyR = getR("BuyPlant") or getR("BuySeed")
     if not buyR then return end
@@ -64,12 +70,103 @@ local function autoFarm()
     end
 end
 
--- Auto Sell/Buy/Fuse/Upgrade
-local function autoSell() if isSell then local r = getR("SellPlant") if r then r:FireServer("All") end task.wait(math.random(1, 2)) end end
-local function autoBuy() if isBuy then local r = getR("BuyPlant") if r then r:FireServer(selectedPlant, buyAmt) end task.wait(math.random(1, 2)) end end
-local function autoFuse() if isFuse then local r = getR("Fuse") if r then r:FireServer(selectedBrainrot, selectedPlant) end task.wait(math.random(3, 4)) end end
-local function autoUpgPlant() if isUpgPlant then local r = getR("UpgradePlant") if r then r:FireServer() end task.wait(3) end end
-local function autoUpgTower() if isUpgTower then local r = getR("UpgradeTower") if r then r:FireServer() end task.wait(3) end end
+-- Auto Sell
+local function autoSell()
+    if isSell then
+        local r = getR("SellPlant")
+        if r then r:FireServer("All") end
+        task.wait(math.random(1, 2))
+    end
+end
+
+-- Auto Buy
+local function autoBuy()
+    if isBuy then
+        local r = getR("BuyPlant")
+        if r then r:FireServer(selectedPlant, buyAmt) end
+        task.wait(math.random(1, 2))
+    end
+end
+
+-- Auto Fuse
+local function autoFuse()
+    if isFuse then
+        local r = getR("Fuse")
+        if r then r:FireServer(selectedBrainrot, selectedPlant) end
+        task.wait(math.random(3, 4))
+    end
+end
+
+-- Auto Upgrade Plant
+local function autoUpgPlant()
+    if isUpgPlant then
+        local r = getR("UpgradePlant")
+        if r then r:FireServer() end
+        task.wait(3)
+    end
+end
+
+-- Auto Upgrade Tower
+local function autoUpgTower()
+    if isUpgTower then
+        local r = getR("UpgradeTower")
+        if r then r:FireServer() end
+        task.wait(3)
+    end
+end
+
+-- Auto Rebirth
+local function autoRebirth()
+    if isRebirth then
+        local r = getR("Rebirth")
+        if r then r:FireServer() end
+        task.wait(5)
+    end
+end
+
+-- Auto Unlock Rows
+local function autoUnlockRows()
+    if isUnlockRows then
+        local r = getR("UnlockRow")
+        if r then r:FireServer() end
+        task.wait(5)
+    end
+end
+
+-- Kill Aura
+local function killAura()
+    if isKillAura then
+        local enemies = workspace:FindFirstChild("Brainrots"):GetChildren()
+        for _, enemy in ipairs(enemies) do
+            local r = getR("Attack")
+            if r then r:FireServer(enemy) end
+        end
+        task.wait(0.5)
+    end
+end
+
+-- FPS Boost
+local function fpsBoost()
+    if isFPSBoost then
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Low
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") then v.Material = Enum.Material.Plastic v.Reflectance = 0 end
+            if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1 end
+        end
+    end
+end
+
+-- Auto Redeem Codes
+local function autoRedeem()
+    if isRedeem then
+        local r = getR("RedeemCode")
+        for _, code in ipairs(codes) do
+            if r then r:FireServer(code) end
+            task.wait(1)
+        end
+    end
+end
 
 -- Infinite Money (hook FireServer)
 local function hookInfMoney()
@@ -97,20 +194,25 @@ local function tInfMoney() isInfMoney = not isInfMoney if isInfMoney then hookIn
 local function tGod() isGod = not isGod hum.MaxHealth = isGod and math.huge or 100 hum.Health = isGod and math.huge or 100 end
 local function tUpgPlant() isUpgPlant = not isUpgPlant upgPlantC = isUpgPlant and R.Heartbeat:Connect(autoUpgPlant) or upgPlantC and upgPlantC:Disconnect() end
 local function tUpgTower() isUpgTower = not isUpgTower upgTowerC = isUpgTower and R.Heartbeat:Connect(autoUpgTower) or upgTowerC and upgTowerC:Disconnect() end
+local function tRebirth() isRebirth = not isRebirth rebirthC = isRebirth and R.Heartbeat:Connect(autoRebirth) or rebirthC and rebirthC:Disconnect() end
+local function tUnlockRows() isUnlockRows = not isUnlockRows unlockC = isUnlockRows and R.Heartbeat:Connect(autoUnlockRows) or unlockC and unlockC:Disconnect() end
+local function tKillAura() isKillAura = not isKillAura killC = isKillAura and R.Heartbeat:Connect(killAura) or killC and killC:Disconnect() end
+local function tFPSBoost() isFPSBoost = not isFPSBoost if isFPSBoost then fpsBoost() end end
+local function tRedeem() isRedeem = not isRedeem if isRedeem then autoRedeem() end end
 
--- Hotkey [
+-- Hotkey
 U.InputBegan:Connect(function(i, p) if not p and i.KeyCode == Enum.KeyCode.LeftBracket then tGui() end end)
 
 -- GUI
 local function createGui()
     gui = Instance.new("ScreenGui")
-    gui.Name = "PvBCheat"
+    gui.Name = "PvBUltimate"
     gui.Parent = plr.PlayerGui
     gui.ResetOnSpawn = false
     gui.Enabled = isGui
 
     local fr = Instance.new("Frame", gui)
-    fr.Size, fr.Position = UDim2.new(0, 300, 0, 450), UDim2.new(0.5, -150, 0.5, -225)
+    fr.Size, fr.Position = UDim2.new(0, 300, 0, 600), UDim2.new(0.5, -150, 0.5, -300)
     fr.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 
     local cr = Instance.new("UICorner", fr)
@@ -119,7 +221,7 @@ local function createGui()
     st.Color, st.Thickness = Color3.fromRGB(100, 100, 100), 1
 
     local t = Instance.new("TextLabel", fr)
-    t.Size, t.Text, t.TextColor3, t.BackgroundTransparency, t.Font, t.TextSize = UDim2.new(1, 0, 0, 30), "PvB Ultimate Cheat", Color3.new(1,1,1), 1, Enum.Font.GothamBold, 18
+    t.Size, t.Text, t.TextColor3, t.BackgroundTransparency, t.Font, t.TextSize = UDim2.new(1, 0, 0, 30), "PvB Nuked Ultimate Cheat", Color3.new(1,1,1), 1, Enum.Font.GothamBold, 18
 
     local cl = Instance.new("TextButton", fr)
     cl.Size, cl.Position, cl.Text, cl.BackgroundColor3, cl.TextColor3 = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X", Color3.new(1,0,0), Color3.new(1,1,1)
@@ -135,16 +237,21 @@ local function createGui()
         return b
     end
 
-    local farmB = btn(80, "Farm", Color3.fromRGB(0,255,0), function() tFarm() farmB.Text = isFarm and "Stop Farm" or "Farm" farmB.BackgroundColor3 = isFarm and Color3.fromRGB(255,0,0) or Color3.fromRGB(0,255,0) end)
+    local farmB = btn(80, "Auto Farm", Color3.fromRGB(0,255,0), function() tFarm() farmB.Text = isFarm and "Stop Farm" or "Auto Farm" farmB.BackgroundColor3 = isFarm and Color3.fromRGB(255,0,0) or Color3.fromRGB(0,255,0) end)
     local dupeB = btn(130, "Dupe x" .. dupeAmt, Color3.fromRGB(255,165,0), dupeItem)
-    local sellB = btn(180, "Sell", Color3.fromRGB(255,0,0), function() tSell() sellB.Text = isSell and "Stop Sell" or "Sell" end)
-    local buyB = btn(230, "Buy", Color3.fromRGB(0,0,255), function() tBuy() buyB.Text = isBuy and "Stop Buy" or "Buy" end)
-    local fuseB = btn(280, "Fuse", Color3.fromRGB(128,0,128), function() tFuse() fuseB.Text = isFuse and "Stop Fuse" or "Fuse" end)
+    local sellB = btn(180, "Auto Sell", Color3.fromRGB(255,0,0), function() tSell() sellB.Text = isSell and "Stop Sell" or "Auto Sell" end)
+    local buyB = btn(230, "Auto Buy", Color3.fromRGB(0,0,255), function() tBuy() buyB.Text = isBuy and "Stop Buy" or "Auto Buy" end)
+    local fuseB = btn(280, "Auto Fuse", Color3.fromRGB(128,0,128), function() tFuse() fuseB.Text = isFuse and "Stop Fuse" or "Auto Fuse" end)
     local rbB = btn(330, "Rainbow", Color3.fromRGB(255,0,255), function() tRb() rbB.Text = isRb and "No Rainbow" or "Rainbow" end)
     local infB = btn(380, "Inf Money", Color3.fromRGB(255,215,0), function() tInfMoney() infB.Text = isInfMoney and "Stop Inf" or "Inf Money" end)
     local godB = btn(430, "God Mode", Color3.fromRGB(0,255,255), function() tGod() godB.Text = isGod and "No God" or "God Mode" end)
-    local upgPlantB = btn(480, "Upg Plants", Color3.fromRGB(100,255,100), function() tUpgPlant() upgPlantB.Text = isUpgPlant and "Stop Upg P" or "Upg Plants" end)
-    local upgTowerB = btn(530, "Upg Towers", Color3.fromRGB(100,100,255), function() tUpgTower() upgTowerB.Text = isUpgTower and "Stop Upg T" or "Upg Towers" end)
+    local upgPlantB = btn(480, "Auto Upg Plants", Color3.fromRGB(100,255,100), function() tUpgPlant() upgPlantB.Text = isUpgPlant and "Stop Upg P" or "Auto Upg Plants" end)
+    local upgTowerB = btn(530, "Auto Upg Towers", Color3.fromRGB(100,100,255), function() tUpgTower() upgTowerB.Text = isUpgTower and "Stop Upg T" or "Auto Upg Towers" end)
+    local rebirthB = btn(580, "Auto Rebirth", Color3.fromRGB(255,0,100), function() tRebirth() rebirthB.Text = isRebirth and "Stop Rebirth" or "Auto Rebirth" end)
+    local unlockB = btn(630, "Auto Unlock Rows", Color3.fromRGB(0,100,255), function() tUnlockRows() unlockB.Text = isUnlockRows and "Stop Unlock" or "Auto Unlock Rows" end)
+    local killB = btn(680, "Kill Aura", Color3.fromRGB(255,50,50), function() tKillAura() killB.Text = isKillAura and "Stop Kill Aura" or "Kill Aura" end)
+    local fpsB = btn(730, "FPS Boost", Color3.fromRGB(0,255,0), function() tFPSBoost() fpsB.Text = isFPSBoost and "FPS Boost On" or "FPS Boost" end)
+    local redeemB = btn(780, "Auto Redeem", Color3.fromRGB(255,255,0), function() tRedeem() redeemB.Text = isRedeem and "Redeem Done" or "Auto Redeem" end)
 
     -- Dropdown helper
     local function dd(pos, list, sel, fn)
@@ -169,17 +276,11 @@ local function createGui()
 
     -- Speed TextBox
     local speedTB = Instance.new("TextBox", fr)
-    speedTB.Size, speedTB.Position, speedTB.Text, speedTB.BackgroundColor3, speedTB.TextColor3, speedTB.Font, speedTB.TextSize = UDim2.new(1, -10, 0, 30), UDim2.new(0, 5, 0, 570), tostring(walkSpeed), Color3.fromRGB(80,80,80), Color3.new(1,1,1), Enum.Font.Gotham, 14
+    speedTB.Size, speedTB.Position, speedTB.Text, speedTB.BackgroundColor3, speedTB.TextColor3, speedTB.Font, speedTB.TextSize = UDim2.new(1, -10, 0, 30), UDim2.new(0, 5, 0, 820), tostring(walkSpeed), Color3.fromRGB(80,80,80), Color3.new(1,1,1), Enum.Font.Gotham, 14
     speedTB.FocusLost:Connect(function() walkSpeed = tonumber(speedTB.Text) or 16 hum.WalkSpeed = walkSpeed end)
     Instance.new("UICorner", speedTB)
 
-    -- Draggable
-    local dragging, dragI, dragS, startP
-    fr.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging, dragS, startP = true, i.Position, fr.Position i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
-    fr.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement then dragI = i end end)
-    U.InputChanged:Connect(function(i) if i == dragI and dragging then local d = i.Position - dragS fr.Position = UDim2.new(startP.X.Scale, startP.X.Offset + d.X, startP.Y.Scale, startP.Y.Offset + d.Y) end end)
-
-    S:SetCore("SendNotification", {Title="Loaded", Text="PvB Ultimate Cheat - [ to toggle", Duration=3})
+    S:SetCore("SendNotification", {Title="Loaded", Text="PvB Nuked Ultimate Cheat - [ to toggle", Duration=3})
 end
 
 -- Init
@@ -196,4 +297,7 @@ plr.CharacterAdded:Connect(function(c)
     if isFuse then tFuse() tFuse() end
     if isUpgPlant then tUpgPlant() tUpgPlant() end
     if isUpgTower then tUpgTower() tUpgTower() end
+    if isRebirth then tRebirth() tRebirth() end
+    if isUnlockRows then tUnlockRows() tUnlockRows() end
+    if isKillAura then tKillAura() tKillAura() end
 end)
