@@ -1,3 +1,4 @@
+```lua
 local P, R, U, S, RS = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("StarterGui"), game:GetService("ReplicatedStorage")
 local plr, bp, char, hum = P.LocalPlayer, plr:WaitForChild("Backpack"), plr.Character or plr.CharacterAdded:Wait(), char:WaitForChild("Humanoid")
 
@@ -7,14 +8,14 @@ local isFarm, isSell, isBuy, isFuse, isRb, isGui, isInfMoney, isGod, isUpgPlant,
 local dupeAmt, buyAmt, delayMin, delayMax, walkSpeed = 50, 100, 0.2, 1, 100
 local farmC, sellC, buyC, fuseC, infMoneyC, upgPlantC, upgTowerC, gui = nil, nil, nil, nil, nil, nil, nil, nil
 
--- Plants & Brainrots (full list based on game recipes)
+-- Plants & Brainrots (complete list for Plants Vs Brainrots)
 local plants = {"Peashooter", "Strawberry", "Cactus", "Pumpkin", "Sunflower", "Dragon Fruit", "Eggplant", "Watermelon", "Cocotank", "Carnivorous Plant", "Mr Carrot", "CommonSeed", "RareSeed", "EpicSeed", "LegendarySeed", "BrainrotSeed"}
 local brainrots = {"Orangutini Ananassini", "Noobini Bananini", "Svinino Bombondino", "Brr Brr Patapim", "Bananita Dolphinita", "Burbaloni Lulliloli", "Bombardilo Crocodilo", "Girafa Celeste", "Tralalero Tralala", "Los Tralaleritos"}
 local selectedPlant, selectedBrainrot = plants[1], brainrots[1]
 
 -- Get Remote (silent fail)
 local function getR(name)
-    local s, r = pcall(function() return RS:WaitForChild("Remotes"):WaitForChild(name, 3) end)
+    local s, r = pcall(function() return RS:WaitForChild("Remotes"):WaitForChild(name, 2) end)
     return s and r or nil
 end
 
@@ -25,9 +26,9 @@ local function getItem()
     return nil
 end
 
--- Dupe (server-synced, bypass money if possible)
+-- Dupe (server-synced, no money check)
 local function dupeItem()
-    local buyR = getR("BuyPlantRemote") or getR("BuySeed")
+    local buyR = getR("BuyPlant") or getR("PurchaseSeed")
     if not buyR then return end
     local item = getItem() or {Name = selectedPlant}
     for i = 1, dupeAmt do
@@ -50,13 +51,13 @@ local function autoFarm()
     if isFarm and char and hum.Health > 0 then
         hum:MoveTo(farmPos)
         task.wait(math.random(1, 2))
-        local placeR, colR = getR("PlacePlantRemote"), getR("CollectCoinsRemote")
-        if placeR then
+        local plantR, colR = getR("Plant"), getR("Collect")
+        if plantR then
             local seed = getItem() or bp:FindFirstChildOfClass("Tool")
             if seed then
                 hum:EquipTool(seed)
                 task.wait(math.random(delayMin, delayMax))
-                placeR:FireServer(farmPos, seed.Name)
+                plantR:FireServer(farmPos, seed.Name)
             end
         end
         if colR then colR:FireServer() end
@@ -65,20 +66,21 @@ local function autoFarm()
 end
 
 -- Auto Sell/Buy/Fuse/Upgrade
-local function autoSell() if isSell then local r = getR("SellPlantRemote") if r then r:FireServer("All") end task.wait(math.random(1, 2)) end end
-local function autoBuy() if isBuy then local r = getR("BuyPlantRemote") if r then r:FireServer(selectedPlant, buyAmt) end task.wait(math.random(1, 2)) end end
-local function autoFuse() if isFuse then local r = getR("FuseRemote") or getR("FuseBrainrot") if r then r:FireServer(selectedBrainrot, selectedPlant) end task.wait(math.random(3, 4)) end end
-local function autoUpgPlant() if isUpgPlant then local r = getR("UpgradePlantRemote") if r then r:FireServer() end task.wait(3) end end
-local function autoUpgTower() if isUpgTower then local r = getR("UpgradeTowerRemote") if r then r:FireServer() end task.wait(3) end end
+local function autoSell() if isSell then local r = getR("SellPlant") if r then r:FireServer("All") end task.wait(math.random(1, 2)) end end
+local function autoBuy() if isBuy then local r = getR("BuyPlant") if r then r:FireServer(selectedPlant, buyAmt) end task.wait(math.random(1, 2)) end end
+local function autoFuse() if isFuse then local r = getR("Fuse") if r then r:FireServer(selectedBrainrot, selectedPlant) end task.wait(math.random(3, 4)) end end
+local function autoUpgPlant() if isUpgPlant then local r = getR("UpgradePlant") if r then r:FireServer() end task.wait(3) end end
+local function autoUpgTower() if isUpgTower then local r = getR("UpgradeTower") if r then r:FireServer() end task.wait(3) end end
 
 -- Infinite Money (hook FireServer)
 local function hookInfMoney()
     local mt = getrawmetatable(game)
+    if not mt then return end
     local old = mt.__namecall
     setreadonly(mt, false)
     mt.__namecall = newcclosure(function(self, ...)
         local args = {...}
-        if getnamecallmethod() == "FireServer" and self.Name == "CollectCoinsRemote" then
+        if getnamecallmethod() == "FireServer" and self.Name == "Collect" then
             args[1] = math.huge
         end
         return old(self, unpack(args))
@@ -93,7 +95,7 @@ local function tBuy() isBuy = not isBuy buyC = isBuy and R.Heartbeat:Connect(aut
 local function tFuse() isFuse = not isFuse fuseC = isFuse and R.Heartbeat:Connect(autoFuse) or fuseC and fuseC:Disconnect() end
 local function tRb() isRb = not isRb end
 local function tGui() isGui = not isGui if gui then gui.Enabled = isGui end end
-local function tInfMoney() isInfMoney = not isInfMoney if isInfMoney then hookInfMoney() infMoneyC = R.Heartbeat:Connect(function() local r = getR("CollectCoinsRemote") if r then r:FireServer() end end) elseif infMoneyC then infMoneyC:Disconnect() end end
+local function tInfMoney() isInfMoney = not isInfMoney if isInfMoney then hookInfMoney() infMoneyC = R.Heartbeat:Connect(function() local r = getR("Collect") if r then r:FireServer() end end) elseif infMoneyC then infMoneyC:Disconnect() end end
 local function tGod() isGod = not isGod hum.MaxHealth = isGod and math.huge or 100 hum.Health = isGod and math.huge or 100 end
 local function tUpgPlant() isUpgPlant = not isUpgPlant upgPlantC = isUpgPlant and R.Heartbeat:Connect(autoUpgPlant) or upgPlantC and upgPlantC:Disconnect() end
 local function tUpgTower() isUpgTower = not isUpgTower upgTowerC = isUpgTower and R.Heartbeat:Connect(autoUpgTower) or upgTowerC and upgTowerC:Disconnect() end
@@ -103,28 +105,34 @@ U.InputBegan:Connect(function(i, p) if not p and i.KeyCode == Enum.KeyCode.LeftB
 
 -- GUI
 local function createGui()
-    gui = Instance.new("ScreenGui", plr.PlayerGui)
+    gui = Instance.new("ScreenGui")
     gui.Name = "PvB"
+    gui.Parent = plr.PlayerGui
     gui.ResetOnSpawn = false
+    gui.Enabled = isGui
 
     local fr = Instance.new("Frame", gui)
     fr.Size, fr.Position = UDim2.new(0, 300, 0, 450), UDim2.new(0.5, -150, 0.5, -225)
     fr.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 
-    Instance.new("UICorner", fr)
-    Instance.new("UIStroke", fr)
+    local cr = Instance.new("UICorner", fr)
+    cr.CornerRadius = UDim.new(0, 8)
+    local st = Instance.new("UIStroke", fr)
+    st.Color, st.Thickness = Color3.fromRGB(100, 100, 100), 1
 
     local t = Instance.new("TextLabel", fr)
-    t.Size, t.Text, t.TextColor3, t.BackgroundTransparency = UDim2.new(1, 0, 0, 30), "PvB Ultimate Cheat", Color3.new(1,1,1), 1
+    t.Size, t.Text, t.TextColor3, t.BackgroundTransparency, t.Font, t.TextSize = UDim2.new(1, 0, 0, 30), "PvB Ultimate Cheat", Color3.new(1,1,1), 1, Enum.Font.GothamBold, 18
 
     local cl = Instance.new("TextButton", fr)
-    cl.Size, cl.Position, cl.Text, cl.BackgroundColor3 = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X", Color3.new(1,0,0)
+    cl.Size, cl.Position, cl.Text, cl.BackgroundColor3, cl.TextColor3 = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X", Color3.new(1,0,0), Color3.new(1,1,1)
     cl.MouseButton1Click:Connect(function() gui:Destroy() end)
+    Instance.new("UICorner", cl)
 
     -- Button helper
     local function btn(pos, txt, col, fn)
         local b = Instance.new("TextButton", fr)
-        b.Size, b.Position, b.Text, b.BackgroundColor3, b.TextColor3 = UDim2.new(1, -10, 0, 40), UDim2.new(0, 5, 0, pos), txt, col, Color3.new(1,1,1)
+        b.Size, b.Position, b.Text, b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize = UDim2.new(1, -10, 0, 40), UDim2.new(0, 5, 0, pos), txt, col, Color3.new(1,1,1), Enum.Font.Gotham, 16
+        Instance.new("UICorner", b)
         b.MouseButton1Click:Connect(fn)
         return b
     end
@@ -143,7 +151,7 @@ local function createGui()
     -- Dropdown helper
     local function dd(pos, list, sel, fn)
         local d = Instance.new("TextButton", fr)
-        d.Size, d.Position, d.Text, d.BackgroundColor3 = UDim2.new(0.5, -5, 0, 30), UDim2.new(pos > 40 and 0.5 or 0, 5, 0, pos), sel, Color3.fromRGB(100,100,100)
+        d.Size, d.Position, d.Text, d.BackgroundColor3, d.TextColor3, d.Font, d.TextSize = UDim2.new(0.5, -5, 0, 30), UDim2.new(pos > 40 and 0.5 or 0, 5, 0, pos), sel, Color3.fromRGB(100,100,100), Color3.new(1,1,1), Enum.Font.Gotham, 14
         local dl = Instance.new("Frame", fr)
         dl.Size, dl.Position, dl.BackgroundColor3, dl.Visible = UDim2.new(0.5, -5, 0, math.min(#list * 30, 150)), UDim2.new(pos > 40 and 0.5 or 0, 5, 0, pos+30), Color3.fromRGB(50,50,50), false
         Instance.new("UICorner", dl)
@@ -151,7 +159,7 @@ local function createGui()
         ls.SortOrder = Enum.SortOrder.LayoutOrder
         for i, v in ipairs(list) do
             local o = Instance.new("TextButton", dl)
-            o.Size, o.Text, o.TextColor3, o.LayoutOrder = UDim2.new(1, 0, 0, 30), v, Color3.new(1,1,1), i
+            o.Size, o.Text, o.TextColor3, o.Font, o.TextSize, o.LayoutOrder = UDim2.new(1, 0, 0, 30), v, Color3.new(1,1,1), Enum.Font.Gotham, 14, i
             o.MouseButton1Click:Connect(function() fn(v) d.Text = v dl.Visible = false end)
         end
         d.MouseButton1Click:Connect(function() dl.Visible = not dl.Visible end)
@@ -163,8 +171,9 @@ local function createGui()
 
     -- Speed TextBox
     local speedTB = Instance.new("TextBox", fr)
-    speedTB.Size, speedTB.Position, speedTB.Text, speedTB.BackgroundColor3 = UDim2.new(1, -10, 0, 30), UDim2.new(0, 5, 0, 570), tostring(walkSpeed), Color3.fromRGB(80,80,80)
+    speedTB.Size, speedTB.Position, speedTB.Text, speedTB.BackgroundColor3, speedTB.TextColor3, speedTB.Font, speedTB.TextSize = UDim2.new(1, -10, 0, 30), UDim2.new(0, 5, 0, 570), tostring(walkSpeed), Color3.fromRGB(80,80,80), Color3.new(1,1,1), Enum.Font.Gotham, 14
     speedTB.FocusLost:Connect(function() walkSpeed = tonumber(speedTB.Text) or 16 hum.WalkSpeed = walkSpeed end)
+    Instance.new("UICorner", speedTB)
 
     -- Draggable
     local dragging, dragI, dragS, startP
