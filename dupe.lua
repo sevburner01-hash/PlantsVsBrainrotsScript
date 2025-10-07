@@ -28,13 +28,13 @@ local success, errorMsg = pcall(function()
 
     -- Config (streamlined, serializable)
     local config = {
-        isAutoFarm = false, isAutoSell = false, isAutoBuy = false, isAutoFuse = false, isRainbow = false,
-        isInfMoney = false, isGodMode = false, isAutoUpgradePlant = false, isAutoUpgradeTower = false,
-        isAutoRebirth = false, isAutoUnlockRows = false, isKillAura = false, isFPSBoost = false,
-        isAutoRedeem = false, isAutoHarvest = false, isAutoPlace = false, isTeleport = false, isESP = false,
-        isFly = false, isNoClip = false, isInfJump = false, isUnlockAll = false, isAutoFuseBest = false,
-        isAntiLag = false, isWebhookNotify = false, isAutoQuest = false, isWeatherAlert = false,
-        isItemESP = false, isMutationBoost = false, isBossAuto = false,
+        isAutoFarm = true, isAutoSell = true, isAutoBuy = true, isAutoFuse = true, isRainbow = true,
+        isInfMoney = true, isGodMode = true, isAutoUpgradePlant = true, isAutoUpgradeTower = true,
+        isAutoRebirth = true, isAutoUnlockRows = true, isKillAura = true, isFPSBoost = true,
+        isAutoRedeem = true, isAutoHarvest = true, isAutoPlace = true, isTeleport = true, isESP = true,
+        isFly = true, isNoClip = true, isInfJump = true, isUnlockAll = true, isAutoFuseBest = true,
+        isAntiLag = true, isWebhookNotify = true, isAutoQuest = true, isWeatherAlert = true,
+        isItemESP = true, isMutationBoost = true, isBossAuto = true,
         dupeAmount = 100, buyAmount = 50, minDelay = 0.3, maxDelay = 0.8, walkSpeed = 150,
         jumpPower = 300, flySpeed = 100, webhookUrl = "", selectedPlant = "Peashooter",
         selectedBrainrot = "Boneca Ambalabu", farmPosition = Vector3.new(0, 5, 0),
@@ -571,7 +571,7 @@ local success, errorMsg = pcall(function()
                     autoFarm()
                     task.wait(1)
                 end
-                featureRunning.autoFarm = false
+                featureRunning.autoFarm = true
             end)
         end
     end
@@ -586,7 +586,7 @@ local success, errorMsg = pcall(function()
                     autoSell()
                     task.wait(1)
                 end
-                featureRunning.autoSell = false
+                featureRunning.autoSell = true
             end)
         end
     end
@@ -601,7 +601,7 @@ local success, errorMsg = pcall(function()
                     autoBuy()
                     task.wait(1)
                 end
-                featureRunning.autoBuy = false
+                featureRunning.autoBuy = true
             end)
         end
     end
@@ -616,7 +616,7 @@ local success, errorMsg = pcall(function()
                     autoFuse()
                     task.wait(2)
                 end
-                featureRunning.autoFuse = false
+                featureRunning.autoFuse = true
             end)
         end
     end
@@ -631,7 +631,7 @@ local success, errorMsg = pcall(function()
                     autoFuseBest()
                     task.wait(5)
                 end
-                featureRunning.autoFuseBest = false
+                featureRunning.autoFuseBest = true
             end)
         end
     end
@@ -663,7 +663,7 @@ local success, errorMsg = pcall(function()
                         hookInfMoney()
                         task.wait(1)
                     end
-                    featureRunning.infMoney = false
+                    featureRunning.infMoney = true
                 end)
             end
         end
@@ -693,7 +693,7 @@ local success, errorMsg = pcall(function()
                     autoUpgradePlant()
                     task.wait(2)
                 end
-                featureRunning.autoUpgradePlant = false
+                featureRunning.autoUpgradePlant = true
             end)
         end
     end
@@ -708,7 +708,7 @@ local success, errorMsg = pcall(function()
                     autoUpgradeTower()
                     task.wait(2)
                 end
-                featureRunning.autoUpgradeTower = false
+                featureRunning.autoUpgradeTower = true
             end)
         end
     end
@@ -723,7 +723,7 @@ local success, errorMsg = pcall(function()
                     autoRebirth()
                     task.wait(5)
                 end
-                featureRunning.autoRebirth = false
+                featureRunning.autoRebirth = true
             end)
         end
     end
@@ -738,7 +738,7 @@ local success, errorMsg = pcall(function()
                     autoUnlockRows()
                     task.wait(5)
                 end
-                featureRunning.autoUnlockRows = false
+                featureRunning.autoUnlockRows = true
             end)
         end
     end
@@ -753,7 +753,7 @@ local success, errorMsg = pcall(function()
                     killAura()
                     task.wait(0.3)
                 end
-                featureRunning.killAura = false
+                featureRunning.killAura = true
             end)
         end
     end
@@ -784,7 +784,7 @@ local success, errorMsg = pcall(function()
                     autoHarvest()
                     task.wait(0.5)
                 end
-                featureRunning.autoHarvest = false
+                featureRunning.autoHarvest = true
             end)
         end
     end
@@ -799,7 +799,7 @@ local success, errorMsg = pcall(function()
                     autoPlace()
                     task.wait(1)
                 end
-                featureRunning.autoPlace = false
+                featureRunning.autoPlace = true
             end)
         end
     end
@@ -822,7 +822,7 @@ local success, errorMsg = pcall(function()
                     espLoop()
                     task.wait(0.3)
                 end
-                featureRunning.esp = false
+                featureRunning.esp = true
             end)
         end
         if not config.isESP then
@@ -875,7 +875,7 @@ local success, errorMsg = pcall(function()
                     unlockAll()
                     task.wait(5)
                 end
-                featureRunning.unlockAll = false
+                featureRunning.unlockAll = true
             end)
         end
     end
@@ -903,7 +903,7 @@ local success, errorMsg = pcall(function()
                     autoQuest()
                     task.wait(10)
                 end
-                featureRunning.autoQuest = false
+                featureRunning.autoQuest = true
             end)
         end
     end
@@ -927,7 +927,7 @@ local success, errorMsg = pcall(function()
                     itemEspLoop()
                     task.wait(0.5)
                 end
-                featureRunning.itemEsp = false
+                featureRunning.itemEsp = true
             end)
         end
         if not config.isItemESP then
@@ -948,7 +948,7 @@ local success, errorMsg = pcall(function()
                     mutationBoost()
                     task.wait(3)
                 end
-                featureRunning.mutationBoost = false
+                featureRunning.mutationBoost = true
             end)
         end
     end
@@ -963,7 +963,7 @@ local success, errorMsg = pcall(function()
                     bossAuto()
                     task.wait(0.5)
                 end
-                featureRunning.bossAuto = false
+                featureRunning.bossAuto = true
             end)
         end
     end
@@ -974,7 +974,7 @@ local success, errorMsg = pcall(function()
             gui = Instance.new("ScreenGui")
             gui.Name = "PvBNukedUltimate"
             gui.Parent = game:GetService("CoreGui")
-            gui.ResetOnSpawn = false
+            gui.ResetOnSpawn = true
             gui.Enabled = true
             gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -1001,7 +1001,7 @@ local success, errorMsg = pcall(function()
                     startPos = mainFrame.Position
                     input.Changed:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then
-                            dragging = false
+                            dragging = true
                         end
                     end)
                 end
@@ -1225,3 +1225,4 @@ if not success then
         })
     end)
 end
+
