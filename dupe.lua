@@ -7,7 +7,7 @@
 -- Error Handling: Full pcall wrapping, auto-retry fallbacks, graceful feature disabling
 -- Notes: Python/C++ integration emulated via optimized Lua (e.g., pre-generated lists, regex-like remote search). No direct C++/Python in Luau, but logic mirrors their efficiency.
 -- Updates: Added new brainrots from latest sources (Tob Tobi Tobi, Te Te Te Sahur, Bulbito Bandito Traktorito, Los Orcalitos, Los Hotspotsitos, Esok Sekolah). Codes verified as active. Fixed ESP tables, color addition, toggle connections to prevent multiples, added validity checks for character, refactored loops for smooth execution without spamming, added config checks in all loops.
--- Additional: Fixed remote errors by expanding possible names and adding bypass hooks.
+-- Additional: Enhanced remote detection to search all descendants of ReplicatedStorage. Limited notify spam to once per remote. Added debug button to list all remotes.
 
 local success, errorMsg = pcall(function()
     -- Services (comprehensive, stable)
@@ -25,7 +25,7 @@ local success, errorMsg = pcall(function()
     local char = plr.Character or plr.CharacterAdded:Wait()
     local hum = char:WaitForChild("Humanoid", 20)
     local hrp = char:WaitForChild("HumanoidRootPart", 20)
-    local remotes = RS:FindFirstChild("Remotes") or RS:WaitForChild("Remotes", 20)
+    local remotesFolder = RS:FindFirstChild("Remotes") or RS
 
     -- Config (streamlined, serializable)
     local config = {
@@ -40,7 +40,7 @@ local success, errorMsg = pcall(function()
         jumpPower = 300, flySpeed = 100, webhookUrl = "", selectedPlant = "Peashooter",
         selectedBrainrot = "Boneca Ambalabu", farmPosition = Vector3.new(0, 5, 0),
         shopPosition = Vector3.new(50, 5, 50), espColor = Color3.fromRGB(255, 0, 0),
-        guiTheme = "Matrix", guiScale = 1
+        guiTheme = "Matrix", guiScale = 1, debugMode = false
     }
 
     -- Plants and Brainrots (expanded from web sources like destructoid, gamerant, updated with latest X posts)
@@ -91,6 +91,9 @@ local success, errorMsg = pcall(function()
     -- Feature flags (to prevent multiple spawns/connections)
     local featureRunning = {}
 
+    -- Notified remotes to prevent spam
+    local notifiedRemotes = {}
+
     -- Notify (with icon support)
     local function notify(title, text, dur)
         pcall(function()
@@ -114,22 +117,54 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- Get Remote (Python-inspired regex-like search)
+    -- Enhanced Get Remote (searches all descendants of ReplicatedStorage)
     local function getR(name)
         if remoteCache[name] then return remoteCache[name] end
         local possibleNames = {
             name, name.."Remote", name.."Event", "Remote"..name, "Event"..name, name:lower(),
-            name:upper(), name.."Function", "Fn"..name, "Action"..name, "Interact"..name
+            name:upper(), name.."Function", "Fn"..name, "Action"..name, "Interact"..name,
+            name.."RE", name.."RF", "Invoke"..name, "Fire"..name, "Call"..name, "Handle"..name,
+            "Process"..name, "Trigger"..name, "Exec"..name, "Run"..name
         }
+        -- Search in remotes folder first
         for _, n in ipairs(possibleNames) do
-            local remote = remotes:FindFirstChild(n)
+            local remote = remotesFolder:FindFirstChild(n, true) -- Recursive search
             if remote and (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) then
                 remoteCache[name] = remote
                 return remote
             end
         end
-        notify("Debug", "Remote '" .. name .. "' not found. Feature disabled.", 5)
+        -- Fallback: search all descendants of RS
+        local allDescendants = RS:GetDescendants()
+        for _, remote in ipairs(allDescendants) do
+            if (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) and remote.Name:lower():find(name:lower()) then
+                remoteCache[name] = remote
+                return remote
+            end
+        end
+        -- Limited notify to prevent spam
+        if not notifiedRemotes[name] and config.debugMode then
+            notifiedRemotes[name] = true
+            notify("Debug", "Remote '" .. name .. "' not found. Feature may skip actions.", 5)
+        end
         return nil
+    end
+
+    -- Debug function to list all remotes
+    local function listAllRemotes()
+        local allRemotes = {}
+        for _, obj in ipairs(RS:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                table.insert(allRemotes, obj:GetFullName() .. " (" .. obj.ClassName .. ")")
+            end
+        end
+        local remoteList = table.concat(allRemotes, "\n")
+        notify("Debug Remotes", "Found " .. #allRemotes .. " remotes:\n" .. remoteList, 10)
+        print("=== REMOTES LIST ===")
+        for _, remote in ipairs(allRemotes) do
+            print(remote)
+        end
+        print("=== END LIST ===")
     end
 
     -- Get Item (C++-style minimal checks)
@@ -144,9 +179,11 @@ local success, errorMsg = pcall(function()
             return nil
         end)
         if not success or not item then
-            notify("Debug", "Item not found. Retrying...", 3)
+            if config.debugMode then
+                notify("Debug", "Item not found. Retrying...", 3)
+            end
             task.wait(1)
-            return getItem(class) -- Auto-heal
+            return getItem(class) -- Auto-retry
         end
         return item
     end
@@ -154,28 +191,28 @@ local success, errorMsg = pcall(function()
     -- Dupe Item (optimized, Python-generated loop)
     local function dupeItem()
         local buyR = getR("BuySeed") or getR("BuyPlant")
-        if not buyR then return end
+        if not buyR then 
+            notify("Dupe", "Buy remote not found. Cannot dupe.", 5)
+            return 
+        end
         local item = getItem() or {Name = config.selectedPlant}
         if not item then return end
         local safeDupeAmt = math.min(config.dupeAmount, 200)
         task.spawn(function()
             for i = 1, safeDupeAmt do
-                local success, err = pcall(function() buyR:FireServer(item.Name) end)
-                if not success then
-                    notify("Debug", "Dupe failed: " .. tostring(err) .. ". Retrying...", 3)
-                    task.wait(1)
-                    pcall(function() buyR:FireServer(item.Name) end)
-                end
+                pcall(function() buyR:FireServer(item.Name) end)
                 if config.isRainbow then
                     task.spawn(function()
                         local newI = bp:WaitForChild(item.Name, 5) or bp:WaitForChild(item.Name .. " (Clone)", 5)
                         if newI then
                             local handle = newI:FindFirstChildOfClass("Part")
                             if handle then
-                                while config.isRainbow and newI.Parent do
-                                    handle.Color = Color3.fromHSV(tick() % 1, 1, 1)
-                                    task.wait(0.05)
-                                end
+                                spawn(function()
+                                    while config.isRainbow and newI.Parent do
+                                        handle.Color = Color3.fromHSV(tick() % 1, 1, 1)
+                                        task.wait(0.05)
+                                    end
+                                end)
                             end
                         end
                     end)
@@ -190,16 +227,10 @@ local success, errorMsg = pcall(function()
     -- Auto Farm
     local function autoFarm()
         if not config.isAutoFarm or not hum or not hum.Parent or hum.Health <= 0 then return end
-        local success, err = pcall(function()
+        pcall(function()
             hum.WalkSpeed = config.walkSpeed
             hum:MoveTo(config.farmPosition)
         end)
-        if not success then
-            notify("Debug", "Move failed: " .. tostring(err) .. ". Retrying...", 3)
-            task.wait(1)
-            pcall(function() hum:MoveTo(config.farmPosition) end)
-            return
-        end
         local plantR = getR("PlantSeed")
         local colR = getR("Collect")
         if plantR then
@@ -221,18 +252,15 @@ local success, errorMsg = pcall(function()
     local function autoHarvest()
         if not config.isAutoHarvest then return end
         local harvestR = getR("Harvest")
-        if not harvestR then return end
-        local success, plantsFolder = pcall(function() return workspace:FindFirstChild("Plants"):GetChildren() end)
-        if success then
-            for _, plant in ipairs(plantsFolder) do
-                if plant:IsA("Model") and plant:FindFirstChild("Maturity") and plant.Maturity.Value >= 1 then
-                    pcall(function() harvestR:FireServer(plant) end)
+        if harvestR then
+            local success, plantsFolder = pcall(function() return workspace:FindFirstChild("Plants") end)
+            if success and plantsFolder then
+                for _, plant in ipairs(plantsFolder:GetChildren()) do
+                    if plant:IsA("Model") and plant:FindFirstChild("Maturity") and plant.Maturity.Value >= 1 then
+                        pcall(function() harvestR:FireServer(plant) end)
+                    end
                 end
             end
-        else
-            notify("Debug", "Plants folder not found. Retrying...", 3)
-            task.wait(2)
-            autoHarvest()
         end
     end
 
@@ -240,35 +268,31 @@ local success, errorMsg = pcall(function()
     local function autoPlace()
         if not config.isAutoPlace then return end
         local placeR = getR("Deploy")
-        if not placeR then return end
-        local brainrot = getItem() or bp:FindFirstChild(config.selectedBrainrot)
-        if brainrot then
-            pcall(function()
-                hum:EquipTool(brainrot)
-                placeR:FireServer(config.farmPosition + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5)), brainrot.Name)
-            end)
+        if placeR then
+            local brainrot = getItem() or bp:FindFirstChild(config.selectedBrainrot)
+            if brainrot then
+                pcall(function()
+                    hum:EquipTool(brainrot)
+                    placeR:FireServer(config.farmPosition + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5)), brainrot.Name)
+                end)
+            end
         end
     end
 
     -- Teleport
     local function teleportTo(pos)
         if not config.isTeleport or not hrp then return end
-        local success, err = pcall(function()
-            local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Linear)
-            TS:Create(hrp, tweenInfo, {CFrame = CFrame.new(pos)}):Play()
+        pcall(function()
+            hrp.CFrame = CFrame.new(pos)
         end)
-        if not success then
-            notify("Debug", "Teleport failed: " .. tostring(err) .. ". Using instant.", 3)
-            pcall(function() hrp.CFrame = CFrame.new(pos) end)
-        end
     end
 
     -- ESP (Brainrots)
     local function espLoop()
         if not config.isESP then return end
-        local success, enemies = pcall(function() return workspace:FindFirstChild("Brainrots"):GetChildren() end)
-        if success then
-            for _, enemy in ipairs(enemies) do
+        local success, enemies = pcall(function() return workspace:FindFirstChild("Brainrots") end)
+        if success and enemies then
+            for _, enemy in ipairs(enemies:GetChildren()) do
                 local primary = enemy.PrimaryPart
                 if primary and not enemy:FindFirstChild("BillboardGui") and (hrp.Position - primary.Position).Magnitude < 300 then
                     createESP(enemy, config.espColor, espInstances)
@@ -279,7 +303,8 @@ local success, errorMsg = pcall(function()
 
     -- Create ESP
     local function createESP(instance, color, espTable)
-        local bb = Instance.new("BillboardGui", instance)
+        local bb = Instance.new("BillboardGui")
+        bb.Parent = instance
         bb.Adornee = instance.PrimaryPart or instance
         bb.Size = UDim2.new(0, 100, 0, 50)
         bb.StudsOffset = Vector3.new(0, 3, 0)
@@ -299,9 +324,9 @@ local success, errorMsg = pcall(function()
     -- Item ESP
     local function itemEspLoop()
         if not config.isItemESP then return end
-        local success, items = pcall(function() return workspace:FindFirstChild("Items"):GetChildren() end)
-        if success then
-            for _, item in ipairs(items) do
+        local success, items = pcall(function() return workspace:FindFirstChild("Items") end)
+        if success and items then
+            for _, item in ipairs(items:GetChildren()) do
                 if not item:FindFirstChild("BillboardGui") then
                     createESP(item, Color3.fromRGB(0, 255, 0), itemEspInstances)
                 end
@@ -313,10 +338,12 @@ local success, errorMsg = pcall(function()
     local function flyLoop()
         if not config.isFly or not hrp or not hrp.Parent then return end
         if not flyVelocity then
-            flyVelocity = Instance.new("BodyVelocity", hrp)
+            flyVelocity = Instance.new("BodyVelocity")
             flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            flyGyro = Instance.new("BodyGyro", hrp)
+            flyVelocity.Parent = hrp
+            flyGyro = Instance.new("BodyGyro")
             flyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            flyGyro.Parent = hrp
         end
         flyGyro.CFrame = workspace.CurrentCamera.CFrame
         local moveDir = Vector3.new(0, 0, 0)
@@ -375,11 +402,12 @@ local success, errorMsg = pcall(function()
     local function autoFuseBest()
         if not config.isAutoFuseBest then return end
         local r = getR("Fuse")
-        if not r then return end
-        for i = #plants - 5, #plants do
-            for j = #brainrots - 5, #brainrots do
-                pcall(function() r:FireServer(brainrots[j], plants[i]) end)
-                task.wait(1)
+        if r then
+            for i = #plants - 5, #plants do
+                for j = #brainrots - 5, #brainrots do
+                    pcall(function() r:FireServer(brainrots[j], plants[i]) end)
+                    task.wait(1)
+                end
             end
         end
     end
@@ -432,11 +460,11 @@ local success, errorMsg = pcall(function()
     -- Kill Aura
     local function killAura()
         if not config.isKillAura then return end
-        local success, enemies = pcall(function() return workspace:FindFirstChild("Brainrots"):GetChildren() end)
-        if success then
+        local success, enemies = pcall(function() return workspace:FindFirstChild("Brainrots") end)
+        if success and enemies then
             local r = getR("Damage") or getR("Attack")
             if r then
-                for _, enemy in ipairs(enemies) do
+                for _, enemy in ipairs(enemies:GetChildren()) do
                     pcall(function() r:FireServer(enemy, math.huge) end)
                 end
             end
@@ -447,13 +475,13 @@ local success, errorMsg = pcall(function()
     local function autoRedeem()
         if not config.isAutoRedeem then return end
         local r = getR("RedeemCode")
-        for _, code in ipairs(codes) do
-            if r then
+        if r then
+            for _, code in ipairs(codes) do
                 pcall(function() r:FireServer(code) end)
+                task.wait(0.5)
             end
-            task.wait(0.5)
+            notify("Success", "Redeemed all valid codes", 5)
         end
-        notify("Success", "Redeemed all valid codes", 5)
     end
 
     -- Infinite Money loop function
@@ -552,9 +580,9 @@ local success, errorMsg = pcall(function()
         if not config.isBossAuto then return end
         local r = getR("Damage") or getR("Attack")
         if r then
-            local success, bosses = pcall(function() return workspace:FindFirstChild("Bosses"):GetChildren() end)
-            if success then
-                for _, boss in ipairs(bosses) do
+            local success, bosses = pcall(function() return workspace:FindFirstChild("Bosses") end)
+            if success and bosses then
+                for _, boss in ipairs(bosses:GetChildren()) do
                     pcall(function() r:FireServer(boss, math.huge) end)
                 end
             end
@@ -809,7 +837,7 @@ local success, errorMsg = pcall(function()
         config.isTeleport = not config.isTeleport
         notify("Toggle", "Teleport " .. (config.isTeleport and "ON" or "OFF"), 3)
         if config.isTeleport then
-            teleportTo(config.shopPosition) -- Example, can be customized
+            teleportTo(config.shopPosition)
         end
     end
 
@@ -969,7 +997,14 @@ local success, errorMsg = pcall(function()
         end
     end
 
-    -- GUI creation
+    -- Toggle Debug Mode
+    local function tDebugMode()
+        config.debugMode = not config.debugMode
+        notify("Toggle", "Debug Mode " .. (config.debugMode and "ON" or "OFF"), 3)
+        notifiedRemotes = {} -- Reset notifies when toggling
+    end
+
+    -- GUI creation (fixed color addition with math.min to prevent overflow)
     local function createGui()
         local success, err = pcall(function()
             gui = Instance.new("ScreenGui")
@@ -1066,7 +1101,7 @@ local success, errorMsg = pcall(function()
             tabContents["Farm"].Visible = true  -- Default tab
 
             -- Add button helper
-            local function addButton(parent, text, func, color)
+            local function addButton(parent, text, func, order, color)
                 local btn = Instance.new("TextButton", parent)
                 local bgColor = color or Color3.fromRGB(30, 30, 30)
                 btn.Size = UDim2.new(1, 0, 0, 35)
@@ -1075,6 +1110,7 @@ local success, errorMsg = pcall(function()
                 btn.TextColor3 = Color3.fromRGB(0, 255, 0)
                 btn.Font = Enum.Font.Code
                 btn.TextSize = 16
+                btn.LayoutOrder = order or 0
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
                 btn.MouseButton1Click:Connect(func)
                 btn.MouseEnter:Connect(function()
@@ -1108,50 +1144,51 @@ local success, errorMsg = pcall(function()
                 tb.FocusLost:Connect(function()
                     onChange(tb.Text)
                 end)
+                return frame
             end
 
             -- Populate Farm tab
             local farmTab = tabContents["Farm"]
-            addButton(farmTab, "Toggle Auto Farm", tAutoFarm)
-            addButton(farmTab, "Toggle Auto Sell", tAutoSell)
-            addButton(farmTab, "Toggle Auto Buy", tAutoBuy)
-            addButton(farmTab, "Toggle Auto Fuse", tAutoFuse)
-            addButton(farmTab, "Toggle Auto Fuse Best", tAutoFuseBest)
-            addButton(farmTab, "Toggle Auto Harvest", tAutoHarvest)
-            addButton(farmTab, "Toggle Auto Place", tAutoPlace)
-            addButton(farmTab, "Toggle Auto Upgrade Plant", tAutoUpgradePlant)
-            addButton(farmTab, "Toggle Auto Upgrade Tower", tAutoUpgradeTower)
-            addButton(farmTab, "Toggle Auto Rebirth", tAutoRebirth)
-            addButton(farmTab, "Toggle Auto Unlock Rows", tAutoUnlockRows)
-            addButton(farmTab, "Toggle Auto Quest", tAutoQuest)
-            addButton(farmTab, "Dupe Item", dupeItem)
+            addButton(farmTab, "Toggle Auto Farm", tAutoFarm, 1)
+            addButton(farmTab, "Toggle Auto Sell", tAutoSell, 2)
+            addButton(farmTab, "Toggle Auto Buy", tAutoBuy, 3)
+            addButton(farmTab, "Toggle Auto Fuse", tAutoFuse, 4)
+            addButton(farmTab, "Toggle Auto Fuse Best", tAutoFuseBest, 5)
+            addButton(farmTab, "Toggle Auto Harvest", tAutoHarvest, 6)
+            addButton(farmTab, "Toggle Auto Place", tAutoPlace, 7)
+            addButton(farmTab, "Toggle Auto Upgrade Plant", tAutoUpgradePlant, 8)
+            addButton(farmTab, "Toggle Auto Upgrade Tower", tAutoUpgradeTower, 9)
+            addButton(farmTab, "Toggle Auto Rebirth", tAutoRebirth, 10)
+            addButton(farmTab, "Toggle Auto Unlock Rows", tAutoUnlockRows, 11)
+            addButton(farmTab, "Toggle Auto Quest", tAutoQuest, 12)
+            addButton(farmTab, "Dupe Item", dupeItem, 13)
 
             -- Populate Combat tab
             local combatTab = tabContents["Combat"]
-            addButton(combatTab, "Toggle Kill Aura", tKillAura)
-            addButton(combatTab, "Toggle God Mode", tGodMode)
-            addButton(combatTab, "Toggle Infinite Money", tInfMoney)
-            addButton(combatTab, "Toggle Boss Auto", tBossAuto)
-            addButton(combatTab, "Toggle Mutation Boost", tMutationBoost)
+            addButton(combatTab, "Toggle Kill Aura", tKillAura, 1)
+            addButton(combatTab, "Toggle God Mode", tGodMode, 2)
+            addButton(combatTab, "Toggle Infinite Money", tInfMoney, 3)
+            addButton(combatTab, "Toggle Boss Auto", tBossAuto, 4)
+            addButton(combatTab, "Toggle Mutation Boost", tMutationBoost, 5)
 
             -- Populate Visual tab
             local visualTab = tabContents["Visual"]
-            addButton(visualTab, "Toggle ESP", tESP)
-            addButton(visualTab, "Toggle Item ESP", tItemESP)
-            addButton(visualTab, "Toggle Rainbow", tRainbow)
-            addButton(visualTab, "Toggle FPS Boost", tFPSBoost)
-            addButton(visualTab, "Toggle Anti Lag", tAntiLag)
+            addButton(visualTab, "Toggle ESP", tESP, 1)
+            addButton(visualTab, "Toggle Item ESP", tItemESP, 2)
+            addButton(visualTab, "Toggle Rainbow", tRainbow, 3)
+            addButton(visualTab, "Toggle FPS Boost", tFPSBoost, 4)
+            addButton(visualTab, "Toggle Anti Lag", tAntiLag, 5)
 
             -- Populate Misc tab
             local miscTab = tabContents["Misc"]
-            addButton(miscTab, "Toggle Fly", tFly)
-            addButton(miscTab, "Toggle NoClip", tNoClip)
-            addButton(miscTab, "Toggle Inf Jump", tInfJump)
-            addButton(miscTab, "Toggle Unlock All", tUnlockAll)
-            addButton(miscTab, "Toggle Auto Redeem", tAutoRedeem)
-            addButton(miscTab, "Toggle Webhook Notify", tWebhookNotify)
-            addButton(miscTab, "Toggle Weather Alert", tWeatherAlert)
-            addButton(miscTab, "Toggle Teleport", tTeleport)
+            addButton(miscTab, "Toggle Fly", tFly, 1)
+            addButton(miscTab, "Toggle NoClip", tNoClip, 2)
+            addButton(miscTab, "Toggle Inf Jump", tInfJump, 3)
+            addButton(miscTab, "Toggle Unlock All", tUnlockAll, 4)
+            addButton(miscTab, "Toggle Auto Redeem", tAutoRedeem, 5)
+            addButton(miscTab, "Toggle Webhook Notify", tWebhookNotify, 6)
+            addButton(miscTab, "Toggle Weather Alert", tWeatherAlert, 7)
+            addButton(miscTab, "Toggle Teleport", tTeleport, 8)
 
             -- Populate Config tab
             local configTab = tabContents["Config"]
@@ -1165,6 +1202,8 @@ local success, errorMsg = pcall(function()
             addTextbox(configTab, "Webhook URL", config.webhookUrl, function(val) config.webhookUrl = val end)
             addTextbox(configTab, "Selected Plant", config.selectedPlant, function(val) config.selectedPlant = val end)
             addTextbox(configTab, "Selected Brainrot", config.selectedBrainrot, function(val) config.selectedBrainrot = val end)
+            addButton(configTab, "List All Remotes (Debug)", listAllRemotes, 99, Color3.fromRGB(255, 0, 0))
+            addButton(configTab, "Toggle Debug Mode", tDebugMode, 100, Color3.fromRGB(255, 165, 0))
 
         end)
         if not success then
@@ -1172,7 +1211,8 @@ local success, errorMsg = pcall(function()
             -- Add hotkeys as fallback
             table.insert(connections, U.InputBegan:Connect(function(input)
                 if input.KeyCode == Enum.KeyCode.F1 then tAutoFarm() end
-                -- Add more hotkeys as needed
+                if input.KeyCode == Enum.KeyCode.F2 then listAllRemotes() end
+                if input.KeyCode == Enum.KeyCode.F3 then tDebugMode() end
             end))
         end
     end
@@ -1197,21 +1237,22 @@ local success, errorMsg = pcall(function()
 
     -- Init
     createGui()
-    notify("Loaded", "PvB Ultimate Exploit v5.0 Loaded!", 5)
+    notify("Loaded", "PvB Ultimate Exploit v5.0 Loaded! Use Debug button to list remotes if issues persist.", 5)
 
-    -- Cleanup on script end (but since pcall, not needed, but for completeness)
-    gui.Destroying:Connect(function()
+    -- Cleanup on script end
+    game:BindToClose(function()
         for _, conn in ipairs(connections) do
-            conn:Disconnect()
+            if conn then conn:Disconnect() end
         end
         for _, esp in ipairs(espInstances) do
-            esp:Destroy()
+            if esp then esp:Destroy() end
         end
         for _, esp in ipairs(itemEspInstances) do
-            esp:Destroy()
+            if esp then esp:Destroy() end
         end
         if flyVelocity then flyVelocity:Destroy() end
         if flyGyro then flyGyro:Destroy() end
+        if gui then gui:Destroy() end
     end)
 
 end)
