@@ -7,7 +7,7 @@
 -- Error Handling: Full pcall wrapping, auto-retry fallbacks, graceful feature disabling
 -- Notes: Python/C++ integration emulated via optimized Lua (e.g., pre-generated lists, regex-like remote search). No direct C++/Python in Luau, but logic mirrors their efficiency.
 -- Updates: Added new brainrots from latest sources (Tob Tobi Tobi, Te Te Te Sahur, Bulbito Bandito Traktorito, Los Orcalitos, Los Hotspotsitos, Esok Sekolah). Codes verified as active. Fixed ESP tables, color addition, toggle connections to prevent multiples, added validity checks for character, refactored loops for smooth execution without spamming, added config checks in all loops.
--- Additional: Enhanced remote detection to search all descendants of ReplicatedStorage. Limited notify spam to once per remote. Added debug button to list all remotes.
+-- Additional: Enhanced remote detection to search all descendants of ReplicatedStorage. Limited notify spam to once per remote. Added debug button to list all remotes. Made features continue even if remotes not found, skipping missing actions only. Debug mode off by default to prevent spam.
 
 local success, errorMsg = pcall(function()
     -- Services (comprehensive, stable)
@@ -124,7 +124,8 @@ local success, errorMsg = pcall(function()
             name, name.."Remote", name.."Event", "Remote"..name, "Event"..name, name:lower(),
             name:upper(), name.."Function", "Fn"..name, "Action"..name, "Interact"..name,
             name.."RE", name.."RF", "Invoke"..name, "Fire"..name, "Call"..name, "Handle"..name,
-            "Process"..name, "Trigger"..name, "Exec"..name, "Run"..name
+            "Process"..name, "Trigger"..name, "Exec"..name, "Run"..name, name.."Plant", name.."Brainrot",
+            name.."Seed", name.."Item", "Buy" .. name, "Sell" .. name, "Upgrade" .. name, "Damage" .. name
         }
         -- Search in remotes folder first
         for _, n in ipairs(possibleNames) do
@@ -145,7 +146,7 @@ local success, errorMsg = pcall(function()
         -- Limited notify to prevent spam
         if not notifiedRemotes[name] and config.debugMode then
             notifiedRemotes[name] = true
-            notify("Debug", "Remote '" .. name .. "' not found. Feature may skip actions.", 5)
+            notify("Debug", "Remote '" .. name .. "' not found. Skipping action.", 5)
         end
         return nil
     end
@@ -192,7 +193,9 @@ local success, errorMsg = pcall(function()
     local function dupeItem()
         local buyR = getR("BuySeed") or getR("BuyPlant")
         if not buyR then 
-            notify("Dupe", "Buy remote not found. Cannot dupe.", 5)
+            if config.debugMode then
+                notify("Dupe", "Buy remote not found. Cannot dupe.", 5)
+            end
             return 
         end
         local item = getItem() or {Name = config.selectedPlant}
