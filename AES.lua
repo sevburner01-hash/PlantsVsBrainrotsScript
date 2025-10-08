@@ -8,22 +8,26 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- Load UI Library with error handling
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua", true))() or error("Failed to load Kavo UI library")
-local Window = Library.CreateLib("GrokHub - Da Hood Elite", "DarkTheme") -- MatrixHub-inspired dark theme
+-- Load UI Library (Kavo-inspired, MatrixHub-style)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua", true))() or error("Failed to load Kavo UI")
+local Window = Library.CreateLib("GrokHub - Da Hood Ultimate", "DarkTheme") -- Sleek, neon-accented GUI
 
 -- Global settings and toggles
 getgenv().Enabled = {}
 getgenv().Settings = {
     ESPColor = Color3.fromRGB(255, 0, 0),
     ESPTransparency = 0.5,
+    ESPThickness = 1,
     AuraColor = Color3.fromRGB(0, 255, 0),
     AuraOpacity = 0.5,
     AuraRadius = 10,
+    AuraParticleDensity = 1,
     Prediction = 0.13,
     Smoothness = 0.05,
+    AimbotFOV = 100,
     TriggerDelay = 0.1,
-    NukeIntensity = 10
+    NukeIntensity = 10,
+    NukeRadius = 5
 }
 
 -- God Mode (V3 Skinny God-inspired)
@@ -37,14 +41,13 @@ function ToggleGodMode()
             if v.Name == "Block" then v:Destroy() end
         end
         RunService.Heartbeat:Connect(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.Health = math.huge
-            end
+            if not Enabled.GodMode or not LocalPlayer.Character then return end
+            LocalPlayer.Character.Humanoid.Health = math.huge
         end)
     end
 end
 
--- ESP (Faded/SwagMode-inspired)
+-- ESP (Faded/SwagMode-inspired, C++-style efficiency)
 local ESPObjects = {}
 function CreateESP(Player)
     if Player == LocalPlayer then return end
@@ -53,6 +56,8 @@ function CreateESP(Player)
     Highlight.FillColor = Settings.ESPColor
     Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     Highlight.FillTransparency = Settings.ESPTransparency
+    Highlight.OutlineTransparency = 0
+    Highlight.Adornee = Player.Character
     ESPObjects[Player] = Highlight
 end
 for _, Player in pairs(Players:GetPlayers()) do
@@ -66,11 +71,12 @@ RunService.RenderStepped:Connect(function()
         if Highlight and Highlight.Parent then
             Highlight.FillColor = Settings.ESPColor
             Highlight.FillTransparency = Settings.ESPTransparency
+            Highlight.OutlineTransparency = Settings.ESPThickness / 10
         end
     end
 end)
 
--- Kill Aura (SwagMode-inspired)
+-- Kill Aura (SwagMode-inspired, optimized)
 Enabled.KillAura = false
 function ToggleKillAura()
     Enabled.KillAura = not Enabled.KillAura
@@ -89,7 +95,7 @@ function ToggleKillAura()
     end
 end
 
--- Fake Macro (NukerMode-inspired)
+-- Fake Macro (NukerMode-inspired, C#-style event loop)
 Enabled.FakeMacro = false
 function ToggleFakeMacro()
     Enabled.FakeMacro = not Enabled.FakeMacro
@@ -97,23 +103,26 @@ function ToggleFakeMacro()
         spawn(function()
             while Enabled.FakeMacro do
                 wait(math.random(0.5, 2))
-                keypress(string.char(math.random(97, 100)))
-                wait(0.1)
-                keyrelease(string.char(math.random(97, 100)))
+                pcall(function()
+                    keypress(string.char(math.random(97, 100)))
+                    wait(0.1)
+                    keyrelease(string.char(math.random(97, 100)))
+                end)
             end
         end)
     end
 end
 
--- Silent Aim (Juju/Stefanuk12-inspired)
+-- Silent Aim (Juju-inspired, C++-style vector math)
 Enabled.SilentAim = false
 local AimingTarget = nil
 function GetClosestPlayer()
     local Closest, Distance = nil, math.huge
     for _, Player in pairs(Players:GetPlayers()) do
         if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-            local Dist = (Player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
-            if Dist < Distance then
+            local ScreenPos, OnScreen = Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position)
+            local Dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+            if Dist < Settings.AimbotFOV and Dist < Distance and OnScreen then
                 Closest = Player
                 Distance = Dist
             end
@@ -126,8 +135,9 @@ local old = mt.__namecall
 setreadonly(mt, false)
 mt.__namecall = newcclosure(function(self, ...)
     local args = {...}
-    if Enabled.SilentAim and self.Name == "Hit" and AimingTarget then
-        args[1] = CFrame.new(AimingTarget.Character.Head.Position + (AimingTarget.Character.Head.Velocity * Settings.Prediction))
+    if Enabled.SilentAim and self.Name == "Hit" and AimingTarget and AimingTarget.Character then
+        local TargetPos = AimingTarget.Character.Head.Position + (AimingTarget.Character.Head.Velocity * Settings.Prediction)
+        args[1] = CFrame.new(TargetPos)
     end
     return old(self, unpack(args))
 end)
@@ -144,9 +154,8 @@ function ToggleCamLock()
     Enabled.CamLock = not Enabled.CamLock
     if Enabled.CamLock then
         RunService.RenderStepped:Connect(function()
-            if AimingTarget and AimingTarget.Character then
-                Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, AimingTarget.Character.Head.Position)
-            end
+            if not Enabled.CamLock or not AimingTarget or not AimingTarget.Character then return end
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, AimingTarget.Character.Head.Position)
         end)
     end
 end
@@ -158,9 +167,9 @@ function ToggleCursorLock()
     if Enabled.CursorLock then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
         RunService.RenderStepped:Connect(function()
-            if AimingTarget then
-                mousemoverel((AimingTarget.Character.Head.Position - Mouse.Hit.Position).Magnitude * Settings.Smoothness)
-            end
+            if not Enabled.CursorLock or not AimingTarget or not AimingTarget.Character then return end
+            local TargetPos = Camera:WorldToViewportPoint(AimingTarget.Character.Head.Position)
+            mousemoverel((TargetPos.X - Mouse.X) * Settings.Smoothness, (TargetPos.Y - Mouse.Y) * Settings.Smoothness)
         end)
     else
         UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -173,9 +182,10 @@ function ToggleTriggerbot()
     Enabled.Triggerbot = not Enabled.Triggerbot
     if Enabled.Triggerbot then
         RunService.Heartbeat:Connect(function()
-            if AimingTarget and Mouse.Target and (Mouse.Target.Position - AimingTarget.Character.Head.Position).Magnitude < 5 then
+            if not Enabled.Triggerbot or not AimingTarget or not Mouse.Target or not AimingTarget.Character then return end
+            if (Mouse.Target.Position - AimingTarget.Character.Head.Position).Magnitude < 5 then
                 wait(Settings.TriggerDelay)
-                mouse1click()
+                pcall(mouse1click)
             end
         end)
     end
@@ -190,7 +200,11 @@ function ToggleNuke()
             while Enabled.Nuke do
                 for i = 1, Settings.NukeIntensity do
                     local Effect = Instance.new("Explosion")
-                    Effect.Position = LocalPlayer.Character.HumanoidRootPart.Position
+                    Effect.Position = LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(
+                        math.random(-Settings.NukeRadius, Settings.NukeRadius),
+                        0,
+                        math.random(-Settings.NukeRadius, Settings.NukeRadius)
+                    )
                     Effect.Parent = workspace
                 end
                 wait(0.5)
@@ -225,17 +239,21 @@ MiscTab:NewToggle("God Mode", "Invincibility", function(state) ToggleGodMode() e
 MiscTab:NewToggle("Fake Macro", "Simulate legit inputs", function(state) ToggleFakeMacro() end)
 MiscTab:NewToggle("Nuke", "Spam chaos effects", function(state) ToggleNuke() end)
 
--- Customization Section (All sliders for live updates)
+-- Customization Section (All settings exposed)
 local CustomSection = CustomTab:NewSection("Colors & Effects")
 CustomTab:NewColorPicker("ESP Color", "ESP highlight color", Settings.ESPColor, function(color) Settings.ESPColor = color end)
 CustomTab:NewSlider("ESP Transparency", "ESP opacity", 1, 0, function(value) Settings.ESPTransparency = value end)
+CustomTab:NewSlider("ESP Outline Thickness", "ESP outline thickness", 5, 0, function(value) Settings.ESPThickness = value end)
 CustomTab:NewColorPicker("Aura Color", "Kill aura glow", Settings.AuraColor, function(color) Settings.AuraColor = color end)
 CustomTab:NewSlider("Aura Opacity", "Aura particle opacity", 1, 0, function(value) Settings.AuraOpacity = value end)
 CustomTab:NewSlider("Aura Radius", "Kill aura range", 50, 1, function(value) Settings.AuraRadius = value end)
+CustomTab:NewSlider("Aura Particle Density", "Aura particle count", 5, 1, function(value) Settings.AuraParticleDensity = value end)
+CustomTab:NewSlider("Aimbot FOV", "Field of view for aimbot", 500, 10, function(value) Settings.AimbotFOV = value end)
 CustomTab:NewSlider("Aim Prediction", "Silent aim prediction", 1, 0, function(value) Settings.Prediction = value/100 end)
 CustomTab:NewSlider("Aim Smoothness", "Cursor lock smoothness", 1, 0, function(value) Settings.Smoothness = value/100 end)
 CustomTab:NewSlider("Trigger Delay", "Triggerbot fire delay", 1, 0, function(value) Settings.TriggerDelay = value/10 end)
 CustomTab:NewSlider("Nuke Intensity", "Explosion count per tick", 50, 1, function(value) Settings.NukeIntensity = value end)
+CustomTab:NewSlider("Nuke Radius", "Explosion spread radius", 20, 1, function(value) Settings.NukeRadius = value end)
 CustomTab:NewColorPicker("GUI Theme", "Interface color", Color3.fromRGB(30, 30, 30), function(color) Library:SetTheme(color) end)
 
 -- GUI Toggle Keybind
@@ -245,9 +263,10 @@ UserInputService.InputBegan:Connect(function(input)
     end
 end)
 
--- Aura Visual Effect (Live updates with sliders)
+-- Aura Visual Effect (Live updates with density control)
 RunService.RenderStepped:Connect(function()
-    if Enabled.KillAura then
+    if not Enabled.KillAura then return end
+    for i = 1, Settings.AuraParticleDensity do
         local Aura = Instance.new("Part")
         Aura.Anchored = true
         Aura.CanCollide = false
@@ -255,10 +274,14 @@ RunService.RenderStepped:Connect(function()
         Aura.Color = Settings.AuraColor
         Aura.Shape = Enum.PartType.Ball
         Aura.Size = Vector3.new(Settings.AuraRadius * 2, 1, Settings.AuraRadius * 2)
-        Aura.Position = LocalPlayer.Character.HumanoidRootPart.Position
+        Aura.Position = LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(
+            math.random(-Settings.AuraRadius, Settings.AuraRadius) * 0.5,
+            0,
+            math.random(-Settings.AuraRadius, Settings.AuraRadius) * 0.5
+        )
         Aura.Parent = workspace
         Debris:AddItem(Aura, 0.1)
     end
 end)
 
-print("GrokHub Loaded - Xeno Executor (Educational Use Only)")
+print("GrokHub Loaded - Xeno Executor (Educational Use Only, 10/07/2025 09:16 PM EDT)")
